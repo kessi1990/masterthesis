@@ -6,8 +6,18 @@ import multiprocessing as mp
 
 
 class MCTS:
-    def __init__(self, action_space, c=math.sqrt(2), iteration_limit=100, horizon=40, branching_factor=2,
+    def __init__(self, action_space, c=math.sqrt(2), iteration_limit=100, horizon=40, branching_factor=4,
                  discount_factor=0.99, computation_budget=100):
+        """
+
+        :param action_space:
+        :param c:
+        :param iteration_limit:
+        :param horizon:
+        :param branching_factor:
+        :param discount_factor:
+        :param computation_budget:
+        """
         self.c = c
         self.iteration_limit = iteration_limit
         self.horizon = horizon
@@ -21,13 +31,48 @@ class MCTS:
         self.executable = True
 
     def reset(self):
+        """
+
+        :return:
+        """
         self.root = None
         self.nodes.clear()
         self.executable = True
         self.node_count = 0
         gc.collect()
 
+    def policy(self, env):
+        """
+
+        :param env:
+        :return:
+        """
+        self.reset()
+        self.root = Node(state=env)
+        for i in range(self.iteration_limit):
+            if self.executable:
+                self.construct_tree()
+            else:
+                break
+        assert self.root.children, "root node must have children, otherwise MCTS was initialised with terminal state"
+        best_node = self.return_policy()
+        return best_node.action
+
+    def construct_tree(self):
+        """
+
+        :return:
+        """
+        node = self.select(self.root)
+        if self.executable:
+            self.expand(node)
+
     def select(self, node):
+        """
+
+        :param node:
+        :return:
+        """
         if node.children:
             expandable_nodes = [child for child in node.children if not child.terminal and not child.fully_expanded]
             if expandable_nodes:
@@ -43,16 +88,25 @@ class MCTS:
             return node
 
     def ucb1(self, node):
+        """
+
+        :param node:
+        :return:
+        """
         assert node.parent is not None, "Node {} must have a parent unless it is root node".format(node.node_id)
         exploitation = node.Q
         exploration = self.c * math.sqrt((math.log(node.parent.visits) / node.visits))
         return exploitation + exploration
 
     def expand(self, node):
+        """
+
+        :param node:
+        :return:
+        """
         assert node.terminal is False, "terminal nodes can't be expanded"
         assert node.fully_expanded is False, "fully expanded nodes can't be expanded"
         assert node.unexplored_actions, "no unexplored actions left to explore, node should be marked as fully expanded"
-
         nodes_for_simulation = []
         for _ in range(self.branching_factor):
             action = random.choice(node.unexplored_actions)
@@ -75,14 +129,17 @@ class MCTS:
         pool = mp.Pool(processes=mp.cpu_count())
         results = [pool.apply_async(self.simulate, args=(nfs,)) for nfs in nodes_for_simulation]
         discounted_returns = [r.get() for r in results]
-
         assert len(discounted_returns) == len(nodes_for_simulation), \
             "lengths of d_returns and nodes_for_sim should be equal "
-
         for d_return, n in zip(discounted_returns, nodes_for_simulation):
             self.backpropagate(d_return, n, 0)
 
     def simulate(self, node):
+        """
+
+        :param node:
+        :return:
+        """
         model_copy = copy.deepcopy(node.state)
         discounted_return = 0
         t = 0
@@ -93,47 +150,39 @@ class MCTS:
             t += 1
         return discounted_return
 
-    def backpropagate(self, return_, node, t):
+    def backpropagate(self, discounted_return, node, t):
+        """
+
+        :param discounted_return:
+        :param node:
+        :param t:
+        :return:
+        """
         node.visits += 1
-        discounted_return = return_ * (self.discount_factor ** t)
+        discounted_return *= self.discount_factor ** t
         node.Q_list.append(discounted_return)
         node.Q = sum(node.Q_list) / len(node.Q_list)
         if node.parent:
             self.backpropagate(discounted_return, node.parent, t+1)
 
-    def policy(self, env):
-        self.reset()
-        self.root = Node(state=env)
-        for i in range(self.iteration_limit):
-            if self.executable:
-                self.construct_tree()
-            else:
-                break
-        assert self.root.children, "root node must have children, otherwise MCTS was initialised with terminal state"
-
-        best_node = self.return_policy()
-
-        return best_node.action
-
-    def construct_tree(self):
-        node = self.select(self.root)
-        if self.executable:
-            self.expand(node)
-
     def return_policy(self):
-        # TODO Argsparser --> which selection strategy
-        def get_q(node):
-            return node.Q
-        return max(self.root.children, key=get_q)
-
-    def rollout_policy(self):
-        # TODO Argparser --> which rollout policy
-        pass
+        return max(self.root.children, key=lambda node: node.Q)
 
 
 class Node:
     def __init__(self, state, root=True, parent=None, action=-1, depth=0, node_id=0,
                  terminal=False, fully_expanded=False):
+        """
+
+        :param state:
+        :param root:
+        :param parent:
+        :param action:
+        :param depth:
+        :param node_id:
+        :param terminal:
+        :param fully_expanded:
+        """
         self.root = root
         self.parent = parent
         self.state = state
@@ -149,6 +198,10 @@ class Node:
         self.node_id = node_id
 
     def __str__(self):
+        """
+
+        :return:
+        """
         return "Q / Reward: {}, visits: {}, terminal: {}, fully_expanded: {}, depth: {}, node_id: {}, root: {}" \
             .format(self.Q, self.visits, self.terminal, self.fully_expanded,
                     self.depth, self.node_id, self.root)
