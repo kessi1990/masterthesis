@@ -3,6 +3,7 @@ import random
 import copy
 import gc
 import multiprocessing as mp
+import numpy as np
 
 
 class MCTS:
@@ -140,6 +141,7 @@ class MCTS:
         :param node:
         :return:
         """
+
         model_copy = copy.deepcopy(node.state)
         discounted_return = 0
         t = 0
@@ -148,7 +150,25 @@ class MCTS:
             _, reward, done, _ = model_copy.step(action)
             discounted_return += reward * (self.discount_factor ** t)
             t += 1
+        """
+        q_values = np.zeros(len(self.action_space))
+        action_counts = np.zeros(len(self.action_space))
+        for _ in range(self.computation_budget):
+            model_copy = copy.deepcopy(node.state)
+            plan = np.random.randint(0, len(self.action_space), self.horizon)
+            discounted_return = 0
+            for t, action in enumerate(plan):
+                next_state, reward, done, _ = model_copy.step(action)
+                discounted_return += reward * (self.discount_factor ** t)
+            action = plan[0]
+            old_q = q_values[action]
+            new_q = action_counts[action] * old_q + discounted_return
+            new_q /= action_counts[action] + 1
+            q_values[action] = new_q
+            action_counts[action] += 1
+        """
         return discounted_return
+        # return np.argmax(q_values)
 
     def backpropagate(self, discounted_return, node, t):
         """

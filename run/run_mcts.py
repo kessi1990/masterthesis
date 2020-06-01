@@ -25,8 +25,6 @@ if __name__ == '__main__':
         while not done:
             steps += 1
             action = agent.policy(copy.deepcopy(env))
-            # print('action: {}'.format(action))
-            print('agent: {} {}'.format(env.agent.x, env.agent.y))
             next_state, reward, done, _ = env.step(action)
             discounted_return += reward * (0.99 ** steps)
             if done:
@@ -36,6 +34,6 @@ if __name__ == '__main__':
                 break
 
     for score in scores:
-        print('Discounted Return from episode {} of {}: {}'.format(scores.index(score), TOTAL_EPISODES, score))
+        print('Discounted Return from episode {} of {}: {}'.format(scores.index(score) + 1, TOTAL_EPISODES, score))
 
     print('Average discounted return: {}'.format(sum(scores) / len(scores)))

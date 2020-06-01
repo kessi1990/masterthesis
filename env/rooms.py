@@ -37,11 +37,9 @@ class Environment:
                 self.done = True
         else:
             reward += Rewards.COLLISION.value
-
         state = self.encode_state()
         if self.step_counter >= self.time_limit:
             self.done = True
-
         return state, reward, self.done, self.info
 
     def move(self, direction):
