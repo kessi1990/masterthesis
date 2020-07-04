@@ -1,0 +1,22 @@
+Bahdanau Attention:
+
+
+1. Produce encoder hidden states
+2. Calc alignment scores between previous decoder hidden state and each of the encoder hidden states. (last encoder hidden state = first decoder hidden state)
+3. Softmax alignment scores - alignment scores for each encoder hidden state are combined in single vector and then softmaxed
+4. Calc context vector - encoder hidden states and their alignment scores are multiplied to form the context vector
+5. Decode output - context vector is concatenated with previous decoder output and fed into the decoder with previous decoder hidden state to produce new output
+6. Repeat 2. - 5. until end of sequence
+
+
+=====
+
+Luong Attention:
+
+1. Produce encoder hidden states
+2. Decode - previous decoder hidden state and decoder output is passed to the decoder to generate new hidden state for that time step
+3. Calc alignment scores between new decoder hidden state and the encoder hidden states
+4. Softmax alignment scores - alignment scores for each encoder hidden state are combined single vector and then softmaxed
+5. Calc context vector - encoder hidden states and their alignment scores are multiplied to form the context vector
+6. Produce final output - context vector is concatenated with decoder hidden state (from 2.) and passed through fully connected layer to produce new output
+7. Repeat 2. - 5. until end of sequence
