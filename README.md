@@ -1,4 +1,4 @@
-# Masterthesis
+# Attention-driven learning of temporal abstractions in Reinforcement Learning
 
 TODO
 
