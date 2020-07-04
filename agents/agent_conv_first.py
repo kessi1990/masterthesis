@@ -3,22 +3,24 @@ import torch.nn as nn
 import torch.nn.functional as functional
 import numpy as np
 import random
-from torch import optim
+from torch.optim import Adam
 from torch.autograd import Variable
 from collections import deque
 from functools import reduce
 from utils import transformation
-from networks import conv_first_model
+from models import conv_first_model
 
 
 class Agent:
     """
-    Agent class, combines network parts and builds two-headed neural network
+    Agent class, builds network architecture from different parts and handles training
     """
     def __init__(self, config, nr_actions, device):
         """
 
-        :param config:
+        :param config: configuration parameters obtained from argument parser and configuration loader
+        :param nr_actions: number of actions available in the evnironment
+        :param device: used for computations, cpu is used if gpu(s) not available
         """
 
         self.device = device
@@ -64,11 +66,11 @@ class Agent:
                                            nr_actions=len(self.action_space)).to(self.device)
 
         # Networks optimizer
-        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.learning_rate)
-        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.learning_rate)
-        self.conv_optimizer = optim.Adam(self.conv_net.parameters(), lr=self.learning_rate)
-        self.q_optimizer = optim.Adam(self.q_net.parameters(), lr=self.learning_rate)
-        self.attention_optimizer = optim.Adam(self.attention_layer.parameters(), lr=self.learning_rate)
+        self.encoder_optimizer = Adam(self.encoder.parameters(), lr=self.learning_rate)
+        self.decoder_optimizer = Adam(self.decoder.parameters(), lr=self.learning_rate)
+        self.conv_optimizer = Adam(self.conv_net.parameters(), lr=self.learning_rate)
+        self.q_optimizer = Adam(self.q_net.parameters(), lr=self.learning_rate)
+        self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
 
         self.criterion_lstm = nn.CrossEntropyLoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
@@ -78,21 +80,21 @@ class Agent:
 
     def append_sample(self, state_sequence, action, reward, next_state, done):
         """
-
-        :param state_sequence:
-        :param action:
-        :param reward:
-        :param next_state:
-        :param done:
+        stores transitions in memory buffer - used for experience replay
+        :param state_sequence: sequence (length=3) of consecutive states
+        :param action: executed action
+        :param reward: reward achieved by executing action in last state of state_sequence
+        :param next_state: successor state
+        :param done: flag that marks if next_state is terminal state
         :return:
         """
         self.mem_buffer.append((state_sequence, action, reward, next_state, done))
 
     def policy(self, state_sequence):
         """
-
-        :param state_sequence:
-        :return:
+        policy of learning agent -> epsilon-greedy
+        :param state_sequence: sequence (length=3) of consecutive states
+        :return: action
         """
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.action_space)
@@ -115,14 +117,14 @@ class Agent:
 
     def minimize_epsilon(self):
         """
-
+        minimizes epsilon value which is used for epsilon-greedy action selection
         :return:
         """
         self.epsilon *= self.epsilon_decay
 
     def set_train(self):
         """
-
+        zeros gradients and sets models to train mode
         :return:
         """
         # Zero the gradients
@@ -140,7 +142,7 @@ class Agent:
 
     def set_eval(self):
         """
-
+        sets models to evaluation mode
         :return:
         """
         # Set to evaluation mode
@@ -152,7 +154,7 @@ class Agent:
 
     def train(self):
         """
-
+        trains neural models
         :return:
         """
         self.set_eval()
@@ -176,36 +178,34 @@ class Agent:
             conv_out = self.conv_net.forward(input_sequence)
             conv_out_reshaped = conv_out.reshape(3, 1, 1536)
             encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(conv_out_reshaped)
-            decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1], encoder_c_n[-1])
+            decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
+                                                                                    encoder_c_n[-1])
 
-            lstm_loss += self.train_lstm(decoder_out, context)
+            # lstm_loss += self.train_lstm(decoder_out, context)
             q_loss += self.train_q(next_state, conv_out, action, reward, done)
 
         # self.overall_lstm_loss.append(lstm_loss.item())
         # self.overall_q_loss.append(q_loss.item())
         q_loss = Variable(q_loss, requires_grad=True)
         q_loss.backward()
-        lstm_loss.backward()
+        # lstm_loss.backward()
 
         self.train_step()
         return self.overall_q_loss  # self.overall_lstm_loss, self.overall_q_loss
 
     def train_q(self, next_state, conv_out, action, reward, done):
         """
-
-        :param next_state:
-        :param conv_out:
-        :param action:
-        :param reward:
-        :param done:
+        trains Q-Net part of neural network
+        :param next_state: successor state
+        :param conv_out: output of convulutional network part
+        :param action: performed action in state
+        :param reward: reward achieved by executing action in state
+        :param done: flag if next_state is terminal state
         :return:
         """
         next_state.unsqueeze_(dim=0)
-        print(f'training: next_state unsqueezed shape {next_state.shape}')
         state = conv_out[-1]
-        print(f'training: state / conv_out[-1] shape {state.shape}')
         state = state.reshape(1, 1536)
-        print(f'training: state reshaped shape {state.shape}')
         q_old = self.q_net.forward(state)[0][action].item()
         if done:
             y_hat = reward

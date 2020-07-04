@@ -1,19 +1,26 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.nn.functional as functional
 import numpy as np
 import random
+from torch.optim import Adam
+from torch.autograd import Variable
 from collections import deque
 from functools import reduce
-from networks import lstm_first_model
+from models import lstm_first_model
 from utils import transformation
 
 
 class Agent:
+    """
+        Agent class, builds network architecture from different parts and handles training
+    """
     def __init__(self, config, nr_actions, device):
         """
 
-        :param config:
+        :param config: configuration parameters obtained from argument parser and configuration loader
+        :param nr_actions: number of actions available in the evnironment
+        :param device: used for computations, cpu is used if gpu(s) not available
         """
 
         self.device = device
@@ -60,11 +67,11 @@ class Agent:
                                            nr_actions=len(self.action_space)).to(self.device)
 
         # Networks optimizer
-        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.learning_rate)
-        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.learning_rate)
-        self.conv_optimizer = optim.Adam(self.conv_net.parameters(), lr=self.learning_rate)
-        self.q_optimizer = optim.Adam(self.q_net.parameters(), lr=self.learning_rate)
-        self.attention_optimizer = optim.Adam(self.attention_layer.parameters(), lr=self.learning_rate)
+        self.encoder_optimizer = Adam(self.encoder.parameters(), lr=self.learning_rate)
+        self.decoder_optimizer = Adam(self.decoder.parameters(), lr=self.learning_rate)
+        self.conv_optimizer = Adam(self.conv_net.parameters(), lr=self.learning_rate)
+        self.q_optimizer = Adam(self.q_net.parameters(), lr=self.learning_rate)
+        self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
 
         self.criterion_lstm = nn.CrossEntropyLoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
@@ -74,21 +81,21 @@ class Agent:
 
     def append_sample(self, state_sequence, action, reward, next_state, done):
         """
-
-        :param state_sequence:
-        :param action:
-        :param reward:
-        :param next_state:
-        :param done:
+        stores transitions in memory buffer - used for experience replay
+        :param state_sequence: sequence (length=3) of consecutive states
+        :param action: executed action
+        :param reward: reward achieved by executing action in last state of state_sequence
+        :param next_state: successor state
+        :param done: flag that marks if next_state is terminal state
         :return:
         """
         self.mem_buffer.append((state_sequence, action, reward, next_state, done))
 
     def policy(self, state_sequence):
         """
-
-        :param state_sequence:
-        :return:
+        policy of learning agent -> epsilon-greedy
+        :param state_sequence: sequence (length=3) of consecutive states
+        :return: action
         """
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.action_space)
@@ -103,30 +110,28 @@ class Agent:
             # seq_len, batch_size, input_size = (3, 1, 84 x 72)
             encoder_in = input_sequence.reshape(3, 1, 6048)
             encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(encoder_in)
-            print(f'encoder_out shape {encoder_out.shape}')
             decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
                                                                                     encoder_c_n[-1])
-            print(f'decoder_out shape {decoder_out.shape}')
-            print(f'context shape {context.shape}')
             # reshape to match CNN input
             # batch_size, channels, height, width = (3, 1, 84, 72)
             context = context.reshape(3, 1, 84, 72)
-            print(f'context reshaped shape {context.shape}')
             conv_out = self.conv_net.forward(context)
-            print(f'conv_out shape {conv_out.shape}')
             conv_out = conv_out.reshape(3, 1, 1536)
-            print(f'conv_out reshaped shape {conv_out.shape}')
             q_in = conv_out[-1]
-            q_values = self.q_net.forward(conv_out)
+            q_values = self.q_net.forward(q_in)
             action = torch.argmax(q_values[0]).item()
             return action
 
     def minimize_epsilon(self):
+        """
+        minimizes epsilon value which is used for epsilon-greedy action selection
+        :return:
+        """
         self.epsilon *= self.epsilon_decay
 
     def set_train(self):
         """
-
+        zeros gradients and sets models to train mode
         :return:
         """
         # Zero the gradients
@@ -144,7 +149,7 @@ class Agent:
 
     def set_eval(self):
         """
-
+        sets models to evaluation mode
         :return:
         """
         # Set to evaluation mode
@@ -155,8 +160,10 @@ class Agent:
         self.attention_layer.eval()
 
     def train(self):
-        print('==================')
-        print('Training')
+        """
+        trains neural models
+        :return:
+        """
         self.set_eval()
         mini_batch = random.sample(self.mem_buffer, self.batch_size)
         lstm_loss = 0
@@ -181,36 +188,31 @@ class Agent:
             decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
                                                                                     encoder_c_n[-1])
 
-            q_loss += self.train_q(next_state, context, action, reward, done)
-            print(f'q_loss {q_loss}')
-
             # lstm_loss += self.train_lstm(decoder_out, context)
+            q_loss += self.train_q(next_state, context, action, reward, done)
+
+        q_loss = Variable(q_loss, requires_grad=True)
+        q_loss.backward()
+        lstm_loss.backward()
+
+        self.train_step()
+        return self.overall_q_loss  # self.overall_lstm_loss, self.overall_q_loss
 
     def train_q(self, next_state, context, action, reward, done):
         """
-
-        :param next_state:
-        :param conv_out:
-        :param action:
-        :param reward:
-        :param done:
+        trains Q-Net part of neural network
+        :param next_state: successor state
+        :param context: context vector
+        :param action: performed action in state
+        :param reward: reward achieved by executing action in state
+        :param done: flag if next_state is terminal state
         :return:
         """
-
-        # print(f'training: next_state unsqueezed shape {next_state.shape}')
-
-        # print(f'training: state / conv_out[-1] shape {state.shape}')
-        # state = state.reshape(1, 1536)
         context = context.reshape(3, 1, 84, 72)
-        print(f'context reshaped shape {context.shape}')
         conv_out = self.conv_net.forward(context[-1].unsqueeze(dim=0))
-        print(f'TRAIN Q: conv_out shape {conv_out.shape}')
         q_in = conv_out.reshape(1, 1536)
-        print(f'TRAIN Q: q_in shape {q_in.shape}')
         q_old = self.q_net.forward(q_in)[0][action].item()
-        print(f'TRAIN Q: q_old {q_old}')
         next_state.unsqueeze_(dim=0)
-        print(f'TRAIN Q: next_state shape {next_state.shape}')
         if done:
             y_hat = reward
         else:
@@ -236,3 +238,10 @@ class Agent:
             lstm_loss += self.criterion_lstm(decoder_out[i], context[i])
         """
         pass
+
+    def train_step(self):
+        self.encoder_optimizer.step()
+        self.decoder_optimizer.step()
+        self.conv_optimizer.step()
+        self.q_optimizer.step()
+        self.attention_optimizer.step()

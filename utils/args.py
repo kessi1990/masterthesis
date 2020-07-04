@@ -9,7 +9,7 @@ def parse():
     parser.add_argument('-l', '--lstm-first',
                         help='specifies network architecture. -l or --lstm-first followed by \'True\''
                              'puts encoder / decoder LSTMs in the first place, followed by convolutional layers\n'
-                             'if not provided, \'False\ is used')
+                             'if not provided, \'False\' is used')
     parser.add_argument('-c', '--config',
                         help='parse config file as \'*.yaml\'\n'
                              'if not provided, default config is used.')
@@ -52,5 +52,7 @@ def parse():
         else:
             os.mkdir(output, 777)
         config = {**config, 'output': output}
+
+    config = {**config, 'head': 'lstm' if args.lstm_first else 'cnn'}
 
     return config

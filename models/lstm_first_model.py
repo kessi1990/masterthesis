@@ -39,7 +39,6 @@ class Encoder(nn.Module):
         :param sequence_input:
         :return:
         """
-        print(f'encoder forward: sequence_input shape {sequence_input.shape}')
         output_sequence, (h_n, c_n) = self.lstm(sequence_input)
         return output_sequence, (h_n, c_n)
 
@@ -108,24 +107,17 @@ class Decoder(nn.Module):
         :param cell_state:
         :return:
         """
-        """output_sequence, (h_n, c_n) = self.lstm(attention_applied, (encoder_h_n, encoder_c_n))"""
-        # print (f'decoder output_sequence shape {output_sequence.shape}')
         # alignment score
         alignment_score = self.attention.forward(encoder_out, hidden_state)
-        print(f'alignment_score shape {alignment_score.shape}')
         # encoder_out.squeeze_()
-        print(f'encoder_out squeezed shape {encoder_out.shape}')
         # softmax alignment score to obtain attention weights
         attention_weights = functional.softmax(alignment_score.squeeze(), dim=0)
-        print(f'attention_weights squeezed shape {attention_weights.shape}')
 
         # multiply attention with encoder output
         context = torch.mul(encoder_out.squeeze(), attention_weights)
         context.unsqueeze_(dim=1)
-        print(f'context shape {context.shape}')
         # concat context with encoder_out
         decoder_in = torch.cat((context, encoder_out), dim=2)
-        print(f'decoder_in shape {decoder_in.shape}')
         # feed into decoder
         output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0), cell_state.unsqueeze(dim=0)))
 
@@ -142,7 +134,6 @@ class QNet(nn.Module):
         :param nr_actions:
         """
         super(QNet, self).__init__()
-        # print (f'input size fc {input_size}')
         self.fully_connected_4 = nn.Linear(input_size, 512)
         self.fully_connected_5 = nn.Linear(512, nr_actions)
 
@@ -154,5 +145,4 @@ class QNet(nn.Module):
         """
         out = functional.relu(self.fully_connected_4(state))
         q_values = self.fully_connected_5(out)
-        # print (f'q_net q_values shape {q_values.shape}')
         return q_values
