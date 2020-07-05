@@ -10,12 +10,12 @@ The code for this thesis is completely written in Python. We use Python 3.7
 
 The following packages are required to run the code in this repository:
 
-- numpy==1.18.1
-- matplotlib==3.1.3
-- pytorch==1.5.0
-- torchvision==0.6.0
-- yaml==0.1.7
-- gym==0.17.2
+* numpy==1.18.1
+* matplotlib==3.1.3
+* pytorch==1.5.0
+* torchvision==0.6.0
+* yaml==0.1.7
+* gym==0.17.2
 
 Please note: PyTorch can be installed via different package managers (e.g. conda), with and without GPU-support etc.:
 
