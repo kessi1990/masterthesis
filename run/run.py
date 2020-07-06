@@ -63,9 +63,8 @@ if __name__ == '__main__':
             state = next_state
             if config['mode'] == 'train':
                 if total_steps > config['train_start']:
-                    # loss_1, loss_2 = agent.train()
-                    # lstm_loss = chain(lstm_loss, loss_1)
-                    loss_2 = agent.train()
+                    loss_1, loss_2 = agent.train()
+                    lstm_loss = chain(lstm_loss, loss_1)
                     q_loss = chain(q_loss, loss_2)
                     agent.minimize_epsilon()
             if done:

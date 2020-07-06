@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as functional
 import numpy as np
 import random
 from torch.optim import Adam
@@ -73,7 +72,7 @@ class Agent:
         self.q_optimizer = Adam(self.q_net.parameters(), lr=self.learning_rate)
         self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
 
-        self.criterion_lstm = nn.CrossEntropyLoss().to(self.device)
+        self.criterion_lstm = nn.BCELoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
 
         self.overall_lstm_loss = []
@@ -182,17 +181,15 @@ class Agent:
             decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
                                                                                     encoder_c_n[-1])
 
-            # lstm_loss += self.train_lstm(decoder_out, context)
+            lstm_loss += self.train_lstm(decoder_out, context)
             q_loss += self.train_q(next_state, conv_out, action, reward, done)
 
-        # self.overall_lstm_loss.append(lstm_loss.item())
-        # self.overall_q_loss.append(q_loss.item())
         q_loss = Variable(q_loss, requires_grad=True)
         q_loss.backward()
-        # lstm_loss.backward()
-
+        lstm_loss.backward()
         self.train_step()
-        return self.overall_q_loss  # self.overall_lstm_loss, self.overall_q_loss
+
+        return lstm_loss, q_loss
 
     def train_q(self, next_state, conv_out, action, reward, done):
         """
@@ -222,17 +219,9 @@ class Agent:
         return self.criterion_q(y, y_hat)
 
     def train_lstm(self, decoder_out, context):
-        """
-
-        :param decoder_out:
-        :param context:
-        :return:
-        """
-        """
-        for j in range(len(state_sequence)):
-            lstm_loss += self.criterion_lstm(decoder_out[i], context[i])
-        """
-        pass
+        decoder_out = decoder_out[-1].squeeze()
+        context = context[-1].squeeze()
+        return self.criterion_lstm(torch.sigmoid(decoder_out), context.detach())
 
     def train_step(self):
         self.encoder_optimizer.step()

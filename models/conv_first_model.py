@@ -5,7 +5,7 @@ import torch.nn.functional as functional
 
 class ConvNet(nn.Module):
     """
-
+    COnvolutional
     """
     def __init__(self, in_channels):
         super(ConvNet, self).__init__()
@@ -51,16 +51,15 @@ class Attention(nn.Module):
     def __init__(self, hidden_size, alignment_mechanism):
         super(Attention, self).__init__()
         self.alignment_mechanism = alignment_mechanism
-        self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
 
         if self.alignment_mechanism == 'dot':
             # dot does not use a weighted matrix
             # dot computes alignment score according to h_t^T \bar{h_s}
-            del self.alignment_function
+            return
         elif self.alignment_mechanism == 'location' or 'general':
             # location_based computes alignment score according to a_t = softmax(W_a, h_t)
             # general computes alignment score according to score(h_t, \bar{h_s}) = h_t^T W_a \bar{h_s}
-            pass
+            self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
         elif self.alignment_mechanism == 'concat':
             # TODO
             pass
@@ -109,7 +108,6 @@ class Decoder(nn.Module):
         """
         # alignment score
         alignment_score = self.attention.forward(encoder_out, hidden_state)
-        # encoder_out.squeeze_()
         # softmax alignment score to obtain attention weights
         attention_weights = functional.softmax(alignment_score.squeeze(), dim=0)
 
@@ -119,7 +117,8 @@ class Decoder(nn.Module):
         # concat context with encoder_out
         decoder_in = torch.cat((context, encoder_out), dim=2)
         # feed into decoder
-        output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0), cell_state.unsqueeze(dim=0)))
+        output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0),
+                                                             cell_state.unsqueeze(dim=0)))
 
         return output_sequence, (h_n, c_n), context
 
