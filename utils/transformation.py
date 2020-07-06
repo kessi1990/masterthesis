@@ -1,4 +1,3 @@
-import torch
 import torchvision.transforms as t
 import torchvision.transforms.functional as tf
 from PIL import Image
@@ -32,21 +31,47 @@ class Resize:
         return tf.resize(image, (self.height, self.width), self.interpolation)
 
 
-def transform_img(image):
+class Transformation:
     """
-    Transforms image to reduce computation power. Constructs transformation pipeline and processes given image
-    :param image: image to process
-    :return: tensor for neural network input
+
     """
-    # TODO load environment specific crop and resize parameters from config
-    image = Image.fromarray(image)
-    transformation = t.Compose([
-        Resize(height=int(image.height / 2), width=int(image.width / 2), interpolation=Image.BICUBIC),
-        Crop(top=16, left=4, height=84, width=72),
-        t.ToTensor(),
-        t.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        t.ToPILImage(),
-        t.Grayscale(num_output_channels=1),
-        t.ToTensor()
-    ])
-    return transformation(image)
+    def __init__(self, config):
+        """
+        :param config: configuration containing the following parameters:
+        top: y position for crop
+        left: x position for crop
+        image_height: height of original image
+        image_width: width of original image
+        crop_height: height of cropped image
+        crop_width: width of cropped image
+        out_channels: number of channels, 3 == rgb, 1 == gray
+        mean: mean values for normalization
+        std: standard deviation values for normalization
+        """
+        self.top = config['top']
+        self.left = config['left']
+        self.image_height = config['image_height']
+        self.image_width = config['image_width']
+        self.crop_height = config['crop_height']
+        self.crop_width = config['crop_width']
+        self.out_channels = config['out_channels']
+        self.mean = config['mean']
+        self.std = config['std']
+        self.transformation = t.Compose([
+            Resize(height=int(self.image_height / 2), width=int(self.image_width / 2), interpolation=Image.BICUBIC),
+            Crop(top=self.top, left=self.left, height=self.crop_height, width=self.crop_width),
+            t.ToTensor(),
+            t.Normalize(mean=self.mean, std=self.std),
+            t.ToPILImage(),
+            t.Grayscale(num_output_channels=1),
+            t.ToTensor()
+        ])
+
+    def transform(self, image):
+        """
+        Transforms image to reduce computation power. Constructs transformation pipeline and processes given image
+        :param image: image to process
+        :return: tensor for neural network input
+        """
+        image = Image.fromarray(image)
+        return self.transformation(image)

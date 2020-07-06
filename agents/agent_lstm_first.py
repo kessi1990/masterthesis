@@ -24,6 +24,7 @@ class Agent:
         """
 
         self.device = device
+        self.transformation = transformation.Transformation(config)
 
         # LSTM parameter
         self.input_size_enc = config['input_size_enc']
@@ -104,7 +105,7 @@ class Agent:
             # transform image sequence (crop -> resize -> normalize -> grayscale) to tensor, unsqueeze along dim=0
             # and concat along dim=0 --> in: 3 x (210, 160, 3) --> out tensor(3, 1, 84, 72)
             input_sequence = reduce((lambda t1, t2: torch.cat((t1, t2), dim=0)),
-                                    list(map((lambda img: transformation.transform_img(img).unsqueeze(dim=0)),
+                                    list(map((lambda img: self.transformation.transform(img).unsqueeze(dim=0)),
                                              state_sequence)))
             # reshape to match LSTM encoder input
             # seq_len, batch_size, input_size = (3, 1, 84 x 72)
@@ -173,13 +174,13 @@ class Agent:
             state_sequence = sample[0]
             action = sample[1]
             reward = sample[2]
-            next_state = transformation.transform_img(sample[3])
+            next_state = self.transformation.transform(sample[3])
             done = sample[4]
 
             # transform image sequence (crop -> resize -> normalize -> grayscale) to tensor, unsqueeze along dim=0
             # and concat along dim=0 --> in: 3 x (210, 160, 3) --> out tensor(3, 1, 84, 72)
             input_sequence = reduce((lambda t1, t2: torch.cat((t1, t2), dim=0)),
-                                    list(map((lambda img: transformation.transform_img(img).unsqueeze(dim=0)),
+                                    list(map((lambda img: self.transformation.transform(img).unsqueeze(dim=0)),
                                              state_sequence)))
             # reshape to match LSTM encoder input
             # seq_len, batch_size, input_size = (3, 1, 84 x 72)
