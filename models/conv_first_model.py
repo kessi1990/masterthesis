@@ -19,6 +19,7 @@ class ConvNet(nn.Module):
         :param input_sequence:
         :return:
         """
+
         out = functional.relu(self.conv_1(input_sequence))
         out = functional.relu(self.conv_2(out))
         out = functional.relu((self.conv_3(out)))
@@ -110,7 +111,6 @@ class Decoder(nn.Module):
         alignment_score = self.attention.forward(encoder_out, hidden_state)
         # softmax alignment score to obtain attention weights
         attention_weights = functional.softmax(alignment_score.squeeze(), dim=0)
-
         # multiply attention with encoder output
         context = torch.mul(encoder_out.squeeze(), attention_weights)
         context.unsqueeze_(dim=1)
@@ -119,7 +119,6 @@ class Decoder(nn.Module):
         # feed into decoder
         output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0),
                                                              cell_state.unsqueeze(dim=0)))
-
         return output_sequence, (h_n, c_n), context
 
 

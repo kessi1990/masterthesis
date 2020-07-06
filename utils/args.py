@@ -6,10 +6,12 @@ from utils import config as c
 def parse():
     parser = argparse.ArgumentParser(prog='Attention-driven learning of Temporal Abstractions for '
                                           'Reinforcement Learning', description='Parse arguments for run script')
-    parser.add_argument('-l', '--lstm-first',
-                        help='specifies network architecture. -l or --lstm-first followed by \'True\''
-                             'puts encoder / decoder LSTMs in the first place, followed by convolutional layers\n'
-                             'if not provided, \'False\' is used')
+    parser.add_argument('--head',
+                        help='specifies network architecture. --head \'cnn\'puts convolutional layers in '
+                             'front, followed by encoder / decoder LSTM with attention mechanism\n'
+                             '--head \'lstm\' puts encoder / decoder LSTM with attention mechanism in '
+                             'front, followed by convolutional layers\n'
+                             'if not provided, \'cnn\' is used')
     parser.add_argument('-c', '--config',
                         help='parse config file as \'*.yaml\'\n'
                              'if not provided, default config is used.')
@@ -53,6 +55,6 @@ def parse():
             os.mkdir(output, 777)
         config = {**config, 'output': output}
 
-    config = {**config, 'head': 'lstm' if args.lstm_first else 'cnn'}
+    config = {**config, 'head': args.head if args.head else 'cnn'}
 
     return config

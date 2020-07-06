@@ -119,7 +119,8 @@ class Decoder(nn.Module):
         # concat context with encoder_out
         decoder_in = torch.cat((context, encoder_out), dim=2)
         # feed into decoder
-        output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0), cell_state.unsqueeze(dim=0)))
+        output_sequence, (h_n, c_n) = self.lstm(decoder_in, (hidden_state.unsqueeze(dim=0),
+                                                             cell_state.unsqueeze(dim=0)))
 
         return output_sequence, (h_n, c_n), context
 

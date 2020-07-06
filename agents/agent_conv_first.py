@@ -75,9 +75,6 @@ class Agent:
         self.criterion_lstm = nn.BCELoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
 
-        self.overall_lstm_loss = []
-        self.overall_q_loss = []
-
     def append_sample(self, state_sequence, action, reward, next_state, done):
         """
         stores transitions in memory buffer - used for experience replay
@@ -105,6 +102,7 @@ class Agent:
             input_sequence = reduce((lambda t1, t2: torch.cat((t1, t2), dim=0)),
                                     list(map((lambda img: self.transformation.transform(img).unsqueeze(dim=0)),
                                              state_sequence)))
+
             conv_out = self.conv_net.forward(input_sequence)
             conv_out_reshaped = conv_out.reshape(3, 1, 1536)
             encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(conv_out_reshaped)

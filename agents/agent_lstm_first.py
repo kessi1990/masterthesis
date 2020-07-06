@@ -74,11 +74,8 @@ class Agent:
         self.q_optimizer = Adam(self.q_net.parameters(), lr=self.learning_rate)
         self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
 
-        self.criterion_lstm = nn.CrossEntropyLoss().to(self.device)
+        self.criterion_lstm = nn.BCELoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
-
-        self.overall_lstm_loss = []
-        self.overall_q_loss = []
 
     def append_sample(self, state_sequence, action, reward, next_state, done):
         """
@@ -115,11 +112,11 @@ class Agent:
                                                                                     encoder_c_n[-1])
             # reshape to match CNN input
             # batch_size, channels, height, width = (3, 1, 84, 72)
-            context = context.reshape(3, 1, 84, 72)
-            conv_out = self.conv_net.forward(context)
-            conv_out = conv_out.reshape(3, 1, 1536)
-            q_in = conv_out[-1]
-            q_values = self.q_net.forward(q_in)
+            conv_in = decoder_out[-1].reshape(1, 84, 72)
+            conv_in.unsqueeze_(dim=0)
+            conv_out = self.conv_net.forward(conv_in)
+            conv_out = conv_out.reshape(1, 1536)
+            q_values = self.q_net.forward(conv_out)
             action = torch.argmax(q_values[0]).item()
             return action
 
@@ -189,15 +186,15 @@ class Agent:
             decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
                                                                                     encoder_c_n[-1])
 
-            # lstm_loss += self.train_lstm(decoder_out, context)
+            lstm_loss += self.train_lstm(decoder_out, context)
             q_loss += self.train_q(next_state, context, action, reward, done)
 
         q_loss = Variable(q_loss, requires_grad=True)
         q_loss.backward()
         lstm_loss.backward()
-
         self.train_step()
-        return self.overall_q_loss  # self.overall_lstm_loss, self.overall_q_loss
+
+        return lstm_loss, q_loss
 
     def train_q(self, next_state, context, action, reward, done):
         """
@@ -228,17 +225,9 @@ class Agent:
         return self.criterion_q(y, y_hat)
 
     def train_lstm(self, decoder_out, context):
-        """
-
-        :param decoder_out:
-        :param context:
-        :return:
-        """
-        """
-        for j in range(len(state_sequence)):
-            lstm_loss += self.criterion_lstm(decoder_out[i], context[i])
-        """
-        pass
+        decoder_out = decoder_out[-1].squeeze()
+        context = context[-1].squeeze()
+        return self.criterion_lstm(torch.sigmoid(decoder_out), context.detach())
 
     def train_step(self):
         self.encoder_optimizer.step()
