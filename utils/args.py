@@ -8,24 +8,23 @@ def parse():
                                           'Reinforcement Learning', description='Parse arguments for run script')
     parser.add_argument('--head',
                         help='specifies network architecture. --head \'cnn\'puts convolutional layers in '
-                             'front, followed by encoder / decoder LSTM with attention mechanism\n'
+                             'front, followed by encoder / decoder LSTM with attention mechanism. \n'
                              '--head \'lstm\' puts encoder / decoder LSTM with attention mechanism in '
-                             'front, followed by convolutional layers\n'
+                             'front, followed by convolutional layers. \n'
                              'if not provided, \'cnn\' is used')
     parser.add_argument('-c', '--config',
-                        help='parse config file as \'*.yaml\'\n'
+                        help='parse config file as \'*.yaml\'. \n'
                              'if not provided, default config is used.')
     parser.add_argument('-env', '--environment',
-                        choices=['Breakout-v0', 'another'],
-                        help='used for game selection.\n'
-                             'if not provided, \'Breakout-v0\' is used')
+                        help='used for game selection. \n'
+                             'if not provided, \'Breakout-v0\' is used.')
     parser.add_argument('-o', '--output',
-                        help='output directory. ensure you have permissions to write to this directory!\n'
-                             'if not provided, default-directory \'/output\' is used')
+                        help='output directory. ensure you have permissions to write to this directory! \n'
+                             'if not provided, default-directory \'/output\' is used.')
     parser.add_argument('-m', '--mode',
                         choices=['train', 'eval'],
                         help='sets mode for run script. \'train\' is used for training mode, '
-                             '\'eval\' is used for evaluation mode. if not provided, \'train\' is used')
+                             '\'eval\' is used for evaluation mode. if not provided, \'train\' is used.')
 
     args = parser.parse_args()
 

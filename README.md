@@ -1,5 +1,5 @@
 # Attention-driven Learning of Temporal Abstractions in Reinforcement Learning
-
+------------
 Code repository for master thesis 'Attention-driven Learning of Temporal Abstractions in Reinforcement Learning'.
 
 ## Getting Started
@@ -46,7 +46,7 @@ pip install numpy==1.18.1
 Alternatively, you can install all requirements in *requirements.txt*:
 
 ```bash
-pip install -f requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -54,15 +54,15 @@ pip install -f requirements.txt
 Download and unzip or clone repository. Run the following command
 
 ```bash
-python run/run.py -h
+cd run
+python run.py -h
 ```
 
 to get a brief overview of all possible options:
 
-```bash
-
+```
 usage: Attention-driven learning of Temporal Abstractions for Reinforcement Learning
-       [-h] [--head HEAD] [-c CONFIG] [-env {Breakout-v0,another}] [-o OUTPUT]
+       [-h] [--head HEAD] [-c CONFIG] [-env ENVIRONMENT] [-o OUTPUT]
        [-m {train,eval}]
 
 Parse arguments for run script
@@ -71,24 +71,24 @@ optional arguments:
   -h, --help            show this help message and exit
   --head HEAD           specifies network architecture. --head 'cnn'puts
                         convolutional layers in front, followed by encoder /
-                        decoder LSTM with attention mechanism --head 'lstm'
+                        decoder LSTM with attention mechanism. --head 'lstm'
                         puts encoder / decoder LSTM with attention mechanism
-                        in front, followed by convolutional layers if not
+                        in front, followed by convolutional layers. if not
                         provided, 'cnn' is used
   -c CONFIG, --config CONFIG
-                        parse config file as '*.yaml' if not provided, default
-                        config is used.
-  -env {Breakout-v0,another}, --environment {Breakout-v0,another}
+                        parse config file as '*.yaml'. if not provided,
+                        default config is used.
+  -env ENVIRONMENT, --environment ENVIRONMENT
                         used for game selection. if not provided,
-                        'Breakout-v0' is used
+                        'Breakout-v0' is used.
   -o OUTPUT, --output OUTPUT
                         output directory. ensure you have permissions to write
                         to this directory! if not provided, default-directory
-                        '/output' is used
+                        '/output' is used.
   -m {train,eval}, --mode {train,eval}
                         sets mode for run script. 'train' is used for training
                         mode, 'eval' is used for evaluation mode. if not
-                        provided, 'train' is used
+                        provided, 'train' is used.
 ```
 
 ## Contributing
