@@ -115,9 +115,7 @@ class EADAgent(Agent):
         :param device:
         """
         super(EADAgent, self).__init__()
-
         self.device = device
-        print(f'device: {self.device}')
 
         # DQN parameter
         self.action_space = [_ for _ in range(nr_actions)]
@@ -131,29 +129,8 @@ class EADAgent(Agent):
         self.k_count = 0
         self.memory = deque(maxlen=config['mem_size'])
 
-        """
-        self.conv_net = conv_first_model.ConvNet(self.in_channels)  # conv3 out shape torch.Size([3, 128, 4, 3])
-        self.encoder = conv_first_model.Encoder(input_size=self.input_size_enc,
-                                                hidden_size=self.hidden_size_enc,
-                                                nr_layers=self.nr_layers_enc).to(self.device)
-        self.attention_layer = conv_first_model.Attention(hidden_size=self.input_size_enc,
-                                                          alignment_mechanism=config['alignment_function']).to(
-            self.device)
-        self.decoder = conv_first_model.Decoder(input_size=self.input_size_dec,
-                                                hidden_size=self.hidden_size_dec,
-                                                nr_layers=self.nr_layers_dec,
-                                                output_size=nr_actions).to(self.device)
-        self.q_net = conv_first_model.QNet(input_size=self.input_size_fc,
-                                           nr_actions=len(self.action_space)).to(self.device)
-
-        # Networks optimizer
-        params = list(self.conv_net.parameters()) + list(self.encoder.parameters()) + \
-                 list(self.decoder.parameters()) + list(self.q_net.parameters())
-        if config['alignment_function'] != 'dot':
-            params += list(self.attention_layer.parameters())
-        """
-        self.policy_net = models.EADModel(config, nr_actions).to(self.device)
-        self.target_net = models.EADModel(config, nr_actions).to(self.device)
+        self.policy_net = models.EADModel(config, nr_actions, self.device).to(self.device)
+        self.target_net = models.EADModel(config, nr_actions, self.device).to(self.device)
         params = list(self.policy_net.parameters()) + list(self.target_net.parameters())
         self.optimizer = optim.Adam(params, lr=self.learning_rate)
         self.criterion = nn.MSELoss().to(self.device)
@@ -231,41 +208,3 @@ class EADAgent(Agent):
 
     def update_target(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
-
-    """
-    def forward(self, state_sequence):
-        # conv_in 4 x 1 x 84 x 72
-        conv_in = torch.stack(list(state_sequence), dim=0)
-        # conv_out 4 x 128 x 4 x 3
-        conv_out = self.conv_net.forward(conv_in)
-        # encoder_in 12, 1, 384
-        input_sequence = self.build_vector(conv_out)
-        # input_sequence 12, 512 --> 12, 1, 512
-        input_sequence.unsqueeze_(dim=1)
-        encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(input_sequence)
-        h_n, c_n = encoder_h_n, encoder_c_n
-        # h_n.unsqueeze_(dim=0)
-        # c_n.unsqueeze_(dim=0)
-        q_values = []
-        for _ in encoder_out:
-            decoder_out, (decoder_h_n, decoder_c_n), attentional_hidden = self.decoder.forward(input_sequence,
-                                                                                               encoder_out, h_n, c_n)
-            h_n = decoder_h_n
-            c_n = decoder_c_n
-            q_values.append(self.q_net.forward(attentional_hidden))
-        return q_values
-    
-
-    def build_vector(self, conv_out):
-        batch, _, height, width = conv_out.shape
-        vectors = [torch.stack([conv_out[i][:, y, x] for y in range(height) for x in range(width)], dim=0)
-                   for i in range(batch)]
-        if self.vector_combination == 'mean':
-            return reduce(lambda t1, t2: t1 + t2, vectors) / len(vectors)
-        elif self.vector_combination == 'sum':
-            return reduce(lambda t1, t2: t1 + t2, vectors)
-        elif self.vector_combination == 'concat':
-            return reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors)
-        else:
-            pass
-    """

@@ -13,17 +13,18 @@ from agents import agents as agent
 from utils import args as a
 from utils import config as c
 from utils import transformation
+from utils import io
 
 args = a.parse()
 config = c.make_config(args)
 print(config)
+working_dir = io.make_dir(config['output'])
 env = gym.make(config['environment'])
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 t = transformation.Transformation(config)
 
 total_steps = 0
 state_seq = deque(maxlen=config['input_length'])
-lstm_loss = []
 q_loss = []
 discounted_returns = []
 
@@ -34,7 +35,7 @@ def plot(data, name):
     plt.plot(list(data))
     plt.xlabel('Training Steps')
     plt.ylabel(f'{name}')
-    f.savefig(f'{name}.png')
+    f.savefig(f'{working_dir}/{name}.png')
 
 
 if __name__ == '__main__':

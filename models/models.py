@@ -13,12 +13,13 @@ class CNN(nn.Module):
     """
     convolutional neural network (CNN)
     """
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, device):
         """
 
         :param in_channels: number of channels
         """
         super(CNN, self).__init__()
+        self.device = device
         self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4, padding=1)
         self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv_3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
@@ -29,8 +30,8 @@ class CNN(nn.Module):
         :param input_sequence: consecutive states from environment
         :return: returns feature maps
         """
-        test = input_sequence.cuda()
-        out = functional.relu(self.conv_1(test))
+        out = input_sequence.to(device=self.device)
+        out = functional.relu(self.conv_1(out))
         out = functional.relu(self.conv_2(out))
         out = functional.relu((self.conv_3(out)))
         return out
@@ -214,14 +215,14 @@ class EADModel(nn.Module):
     """
 
     """
-    def __init__(self, config, nr_actions):
+    def __init__(self, config, nr_actions, device):
         """
 
         :param config:
         :param nr_actions:
         """
         super(EADModel, self).__init__()
-        self.conv_net = CNN(config['in_channels'])
+        self.conv_net = CNN(config['in_channels'], device)
 
         self.encoder = Encoder(input_size=config['input_size_enc'],
                                hidden_size=config['hidden_size_enc'],

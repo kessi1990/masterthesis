@@ -1,5 +1,4 @@
 import argparse
-import os
 from utils import config as c
 
 
@@ -48,10 +47,6 @@ def parse():
         config = {**config, 'output': args.output}
     else:
         output = '../output/'
-        if os.path.exists(output) and os.path.isdir(output):
-            print(f'output directory {output} already exists')
-        else:
-            os.mkdir(output, 777)
         config = {**config, 'output': output}
 
     config = {**config, 'head': args.head if args.head else 'cnn'}
