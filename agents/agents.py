@@ -117,6 +117,7 @@ class EADAgent(Agent):
         super(EADAgent, self).__init__()
 
         self.device = device
+        print(f'device: {self.device}')
 
         # DQN parameter
         self.action_space = [_ for _ in range(nr_actions)]
@@ -179,9 +180,7 @@ class EADAgent(Agent):
             return np.random.choice(self.action_space)
         else:
             q_values = self.policy_net.forward(state_sequence)
-            print(q_values.shape)
-            action = np.argmax(q_values[-1].detach().numpy())
-            print(action)
+            action = torch.argmax(q_values[0]).item()
             return action
 
     def minimize_epsilon(self):
@@ -211,13 +210,13 @@ class EADAgent(Agent):
         for i in range(self.batch_size):
             q_old = self.policy_net.forward(state_sequences[i])
             prediction = q_old[0][actions[i]]
-            prediction = prediction.clone().detach().requires_grad_(True)
+            # prediction = prediction.clone().detach().requires_grad_(True)
             if dones[i]:
                 target = rewards[i]
             else:
                 q_new = self.target_net.forward(next_state_sequences[i])
-                target = rewards[i] + self.discount_factor * np.argmax(q_new[0].detach().numpy())
-            target = torch.tensor(target, requires_grad=True)
+                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
+            target = torch.tensor(target, requires_grad=True, device=self.device)
             loss += self.criterion(prediction, target)
             self.k_count += 1
         loss.backward()

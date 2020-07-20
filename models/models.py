@@ -29,7 +29,8 @@ class CNN(nn.Module):
         :param input_sequence: consecutive states from environment
         :return: returns feature maps
         """
-        out = functional.relu(self.conv_1(input_sequence))
+        test = input_sequence.cuda()
+        out = functional.relu(self.conv_1(test))
         out = functional.relu(self.conv_2(out))
         out = functional.relu((self.conv_3(out)))
         return out
