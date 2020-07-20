@@ -13,6 +13,7 @@ input_size_dec: 6048
 hidden_size_dec: 6048
 input_size_fc: 1536
 nr_layers_enc: 3
-nr_layers_dec: 1
+nr_layers_dec: 3
+alignment_function: 'dot'
 attention_mechanism: 'soft'
 environment: 'Breakout-v0'

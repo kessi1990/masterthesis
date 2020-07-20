@@ -36,6 +36,7 @@ class Agent:
         self.mem_buffer = deque(maxlen=config['mem_size'])
 
         # LSTM parameter
+        self.build_vector = 'concat'
         self.input_size_enc = config['input_size_enc']
         self.hidden_size_enc = config['hidden_size_enc']
         self.nr_layers_enc = config['nr_layers_enc']
@@ -58,10 +59,11 @@ class Agent:
                                                 hidden_size=self.hidden_size_enc,
                                                 nr_layers=self.nr_layers_enc).to(self.device)
         self.attention_layer = conv_first_model.Attention(hidden_size=self.input_size_enc,
-                                                          alignment_mechanism='location').to(self.device)
+                                                          alignment_mechanism=config['alignment_function']).to(self.device)
         self.decoder = conv_first_model.Decoder(input_size=self.input_size_dec,
                                                 hidden_size=self.hidden_size_dec,
-                                                nr_layers=self.nr_layers_dec).to(self.device)
+                                                nr_layers=self.nr_layers_dec,
+                                                output_size=nr_actions).to(self.device)
         self.q_net = conv_first_model.QNet(input_size=self.input_size_fc,
                                            nr_actions=len(self.action_space)).to(self.device)
 
@@ -70,7 +72,8 @@ class Agent:
         self.decoder_optimizer = Adam(self.decoder.parameters(), lr=self.learning_rate)
         self.conv_optimizer = Adam(self.conv_net.parameters(), lr=self.learning_rate)
         self.q_optimizer = Adam(self.q_net.parameters(), lr=self.learning_rate)
-        self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
+        if config['alignment_function'] != 'dot':
+            self.attention_optimizer = Adam(self.attention_layer.parameters(), lr=self.learning_rate)
 
         self.criterion_lstm = nn.BCELoss().to(self.device)
         self.criterion_q = nn.MSELoss().to(self.device)
@@ -104,14 +107,35 @@ class Agent:
                                              state_sequence)))
 
             conv_out = self.conv_net.forward(input_sequence)
-            conv_out_reshaped = conv_out.reshape(3, 1, 1536)
-            encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(conv_out_reshaped)
-            decoder_out, (decoder_h_n, decoder_c_n), context = self.decoder.forward(encoder_out, encoder_h_n[-1],
-                                                                                    encoder_c_n[-1])
-            q_in = decoder_out[-1]
-            q_values = self.q_net.forward(q_in)
-            action = torch.argmax(q_values[0]).item()
-            return action
+            # b, f, h, w = conv_out.shape
+            """
+            vectors = []
+            for i in range(b):
+                v = [conv_out[i][:, y, x] for y in range(h) for x in range(w)]
+                v = [v_i.unsqueeze(dim=0) for v_i in v]
+                v = reduce(lambda t1, t2: torch.cat((t1, t2), dim=0), v)
+                vectors.append(v)
+            if self.build_vector == 'concat':
+                encoder_in = reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors)
+            else:
+                encoder_in = reduce(lambda t1, t2: t1 + t2, vectors)
+            """
+            encoder_in = self.build_v(conv_out, conv_out.shape)
+            print(f'encoder_in shape {encoder_in.shape}')
+            encoder_in.unsqueeze_(dim=1)
+            encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(encoder_in)
+            h_n, c_n = encoder_h_n[-1], encoder_c_n[-1]
+            h_n.unsqueeze_(dim=0)
+            c_n.unsqueeze_(dim=0)
+            output = []
+            for _ in encoder_out:
+                decoder_out, (decoder_h_n, decoder_c_n) = self.decoder.forward(encoder_in, encoder_out,
+                                                                                        h_n, c_n)
+                h_n = decoder_h_n
+                c_n = decoder_c_n
+                top_value, top_index = decoder_out.topk(1)
+                output.append(top_index.item())
+            return None  # action
 
     def minimize_epsilon(self):
         """
@@ -119,6 +143,35 @@ class Agent:
         :return:
         """
         self.epsilon *= self.epsilon_decay
+
+    def build_v(self, input_tensor, shape):
+        b, f, h, w = shape
+
+        # TODO torch.stack() instead of unsqueeze() and cat()
+        vectors = [reduce(lambda t1, t2: torch.cat((t1, t2), dim=0),
+                          list(map(lambda t: t.unsqueeze(dim=0), [input_tensor[i][:, y, x]
+                                                                  for y in range(h) for x in range(w)])))
+                   for i in range(b)]
+        for t in vectors:
+            print(torch.mean(t))
+        """
+        vectors = []
+        for i in range(b):
+            v = [input_tensor[i][:, y, x] for y in range(h) for x in range(w)]
+            v = [v_i.unsqueeze(dim=0) for v_i in v]
+            v = reduce(lambda t1, t2: torch.cat((t1, t2), dim=0), v)
+            vectors.append(v)
+        """
+        if self.build_vector == 'mean':
+            pass
+
+        elif self.build_vector == 'sum':
+            pass
+        elif self.build_vector == 'concat':
+            return reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors)
+        else:
+            # encoder_in = reduce(lambda t1, t2: t1 + t2, vectors)
+            pass
 
     def set_train(self):
         """
@@ -213,7 +266,6 @@ class Agent:
             y_hat = reward + self.gamma * q_new - q_old
         y = torch.tensor([q_old])
         y_hat = torch.tensor([y_hat])
-        # criterion_q() --> q_loss
         return self.criterion_q(y, y_hat)
 
     def train_lstm(self, decoder_out, context):

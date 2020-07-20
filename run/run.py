@@ -7,22 +7,22 @@ import gym
 import datetime
 import copy
 import matplotlib.pyplot as plt
-from itertools import chain
 from collections import deque
 
-from agents import agent_conv_first
-from agents import agent_lstm_first
+from agents import agents as agent
 from utils import args as a
 from utils import config as c
+from utils import transformation
 
 args = a.parse()
 config = c.make_config(args)
 print(config)
 env = gym.make(config['environment'])
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+t = transformation.Transformation(config)
 
 total_steps = 0
-input_sequence = deque(maxlen=3)
+state_seq = deque(maxlen=config['input_length'])
 lstm_loss = []
 q_loss = []
 discounted_returns = []
@@ -38,15 +38,13 @@ def plot(data, name):
 
 
 if __name__ == '__main__':
-    if config['head'] == 'cnn':
-        agent = agent_conv_first.Agent(config, env.action_space.n, device)
-    else:
-        agent = agent_lstm_first.Agent(config, env.action_space.n, device)
+    ead_agent = agent.EADAgent(config, env.action_space.n, device)
 
     for episode in range(config['total_episodes']):
-        input_sequence.clear()
-        for _ in range(3):
-            input_sequence.append(env.reset())
+        state_seq.clear()
+        for _ in range(config['input_length']):
+            state_seq.append(t.transform(env.reset()))
+        next_state_seq = copy.deepcopy(state_seq)
         discounted_return = 0
         steps = 0
         done = False
@@ -56,17 +54,18 @@ if __name__ == '__main__':
         while not done:
             steps += 1
             total_steps += 1
-            action = agent.policy(input_sequence)
+            action = ead_agent.policy(state_seq)
             next_state, reward, done, _ = env.step(action)
+            next_state = t.transform(next_state)
+            next_state_seq.append(next_state)
             discounted_return += reward * (config['gamma'] ** steps)
-            agent.append_sample(copy.deepcopy(input_sequence), action, reward, copy.deepcopy(next_state), done)
+            ead_agent.append_sample(copy.deepcopy(state_seq), action, reward, copy.deepcopy(next_state_seq), done)
             state = next_state
             if config['mode'] == 'train':
                 if total_steps > config['train_start']:
-                    loss_1, loss_2 = agent.train()
-                    lstm_loss = chain(lstm_loss, loss_1)
-                    q_loss = chain(q_loss, loss_2)
-                    agent.minimize_epsilon()
+                    loss = ead_agent.train()
+                    q_loss.append(loss)
+                    ead_agent.minimize_epsilon()
             if done:
                 end = datetime.datetime.utcnow()
                 print(f'done after {steps} steps, duration: {end-start}')

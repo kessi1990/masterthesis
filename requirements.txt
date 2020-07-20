@@ -7,3 +7,4 @@ atari-py~=1.2.1
 pillow~=7.0.0
 ipython~=7.12.0
 pyyaml~=5.3
+yaml~=0.1.7
