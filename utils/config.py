@@ -4,7 +4,7 @@ import yaml
 def make_config(args):
     if args['default']:
         if args['head'] == 'cnn':
-            conf_append = load_config_file('default_cnn_first')
+            conf_append = load_config_file('default')
         else:
             conf_append = load_config_file('default_lstm_first')
         args = {**args, **conf_append}

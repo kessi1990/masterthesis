@@ -273,7 +273,8 @@ class EADModel(nn.Module):
         vectors = [torch.stack([conv_out[i][:, y, x] for y in range(height) for x in range(width)], dim=0)
                    for i in range(batch)]
         if self.vector_combination == 'mean':
-            return reduce(lambda t1, t2: t1 + t2, vectors) / len(vectors)
+            length = len(vectors)
+            return reduce(lambda t1, t2: t1 + t2, vectors) / length
         elif self.vector_combination == 'sum':
             return reduce(lambda t1, t2: t1 + t2, vectors)
         elif self.vector_combination == 'concat':
