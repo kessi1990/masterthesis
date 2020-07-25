@@ -58,7 +58,7 @@ class Transformation:
         self.mean = config['mean']
         self.std = config['std']
         self.transformation = t.Compose([
-            Resize(height=int(self.image_height / 2), width=int(self.image_width / 2), interpolation=Image.BICUBIC),
+            Resize(height=110, width=84, interpolation=Image.BICUBIC),
             Crop(top=self.top, left=self.left, height=self.crop_height, width=self.crop_width),
             t.ToTensor(),
             t.Normalize(mean=self.mean, std=self.std),

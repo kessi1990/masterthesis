@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as functional
+import math
 
 from functools import reduce
 
@@ -20,9 +21,9 @@ class CNN(nn.Module):
         """
         super(CNN, self).__init__()
         self.device = device
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4, padding=1)
+        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4)
         self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv_3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
+        self.conv_3 = nn.Conv2d(64, 128, kernel_size=2, stride=1)
 
     def forward(self, input_sequence):
         """
@@ -90,13 +91,7 @@ class Attention(nn.Module):
         :return: alignment score (scalar)
         """
         if self.alignment_mechanism == 'dot':
-            source_states = encoder_out.squeeze()
-            target_state = decoder_hidden[-1].squeeze()
-            scalars = []
-            for source_state in source_states:
-                scalar = torch.dot(source_state, target_state)
-                scalars.append(scalar)
-            return torch.tensor(scalars)
+            return torch.matmul(encoder_out, decoder_hidden[-1].transpose(0, 1))  # .squeeze().unsqueeze(dim=0)
         elif self.alignment_mechanism == 'general':
             aligned = self.alignment_function(decoder_hidden)
             return torch.matmul(encoder_out, aligned)
@@ -133,16 +128,31 @@ class Decoder(nn.Module):
         :param cell_state: last cell state
         :return:
         """
+        input_vector = hidden_state[-1]
+        output = []
+        for _ in input_sequence:
+            decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_vector.unsqueeze(dim=0), (hidden_state, cell_state))
+            alignment_vector = self.attention.forward(encoder_out, decoder_hidden_s)
+            attention_weights = functional.softmax(alignment_vector, dim=0)
+            attention_applied = torch.mul(encoder_out, attention_weights)
+            context = torch.sum(attention_applied, dim=0)
+            context_concat_hidden = torch.cat((context, decoder_hidden_s[-1]), dim=-1)
+            attentional_hidden = torch.tanh(self.concat_layer(context_concat_hidden))
+            input_vector = attentional_hidden
+            hidden_state = decoder_hidden_s
+            cell_state = decoder_hidden_c
+            output.append(attentional_hidden)
+        output = torch.stack(output, dim=0)
+        """
         decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_sequence, (hidden_state, cell_state))
-        alignment_score = self.attention.forward(encoder_out, decoder_hidden_s)
-        attention_weights = functional.softmax(alignment_score, dim=0)
-        context = []
-        for i, source_state in enumerate(encoder_out):
-            context.append(torch.mul(source_state, attention_weights[i]).unsqueeze_(dim=0))
-        context = reduce(lambda t1, t2: torch.add(t1, t2), context)
-        context = torch.cat((context, decoder_hidden_s[-1].unsqueeze_(dim=0)), dim=-1)
-        attentional_hidden = torch.tanh(self.concat_layer(context[-1]))
-        return decoder_out, (decoder_hidden_s, decoder_hidden_c), attentional_hidden
+        alignment_vector = self.attention.forward(encoder_out, decoder_hidden_s)
+        attention_weights = functional.softmax(alignment_vector, dim=0)
+        attention_applied = torch.mul(encoder_out, attention_weights)
+        context = torch.sum(attention_applied, dim=0)
+        context_concat_hidden = torch.cat((context, decoder_hidden_s[-1]), dim=-1)
+        attentional_hidden = torch.tanh(self.concat_layer(context_concat_hidden))
+        """
+        return output
 
 
 class QNet(nn.Module):
@@ -190,8 +200,7 @@ class DQNModel(nn.Module):
         :param padding:
         """
         super(DQNModel, self).__init__()
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=kernel_size, stride=stride,
-                                padding=padding)
+        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4)
         self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv_3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
         self.fc_1 = nn.Linear(input_size, 512)
@@ -236,10 +245,12 @@ class EADModel(nn.Module):
                                nr_layers=config['nr_layers_dec'],
                                alignment=config['alignment_function'])
 
-        self.q_net = QNet(input_size=config['input_size_fc'],
+        self.q_net = QNet(input_size=config['input_size_q'],
                           nr_actions=nr_actions)
 
+        self.config = config
         self.vector_combination = config['vector_combination']
+        self.q_prediction = config['q_prediction']
 
     def forward(self, state_sequence):
         """
@@ -252,17 +263,19 @@ class EADModel(nn.Module):
         input_sequence = self.build_vector(conv_out)
         input_sequence.unsqueeze_(dim=1)
         encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(input_sequence)
-        h_n, c_n = encoder_h_n, encoder_c_n
-        attentional_hidden_states = []
-        for _ in encoder_out:
-            decoder_out, (decoder_h_n, decoder_c_n), attentional_hidden = self.decoder.forward(input_sequence,
-                                                                                               encoder_out, h_n, c_n)
-            h_n = decoder_h_n
-            c_n = decoder_c_n
-            attentional_hidden_states.append(attentional_hidden)
-        q_in = torch.stack(attentional_hidden_states, dim=0)
-        q_values = self.q_net.forward(q_in.reshape(1, -1))
-
+        decoder_out = self.decoder.forward(input_sequence, encoder_out, encoder_h_n, encoder_c_n)
+        q_in = decoder_out.squeeze(dim=1)
+        if self.vector_combination == 'concat':
+            q_in = torch.transpose(q_in, dim0=0, dim1=1)
+            q_in = q_in.reshape(self.config['input_length'], self.config['max_filters'], self.config['cnn_out'] ** 2)
+            q_in = q_in.reshape(self.config['input_length'], self.config['max_filters'], self.config['cnn_out'],
+                                self.config['cnn_out'])
+            if self.q_prediction == 'last':
+                q_values = self.q_net.forward(q_in[-1].reshape(1, -1))
+            else:
+                q_values = self.q_net.forward(q_in.reshape(self.config['input_length'], -1))
+        else:
+            q_values = self.q_net.forward(q_in.reshape(1, -1))
         return q_values
 
     def build_vector(self, conv_out):

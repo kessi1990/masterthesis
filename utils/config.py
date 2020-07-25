@@ -4,7 +4,7 @@ import yaml
 def make_config(args):
     if args['default']:
         if args['head'] == 'cnn':
-            conf_append = load_config_file('default')
+            conf_append = load_config_file('../config/default.yaml')
         else:
             conf_append = load_config_file('default_lstm_first')
         args = {**args, **conf_append}
@@ -15,5 +15,22 @@ def make_config(args):
 
 
 def load_config_file(file):
-    with open(f'../config/{file}.yaml', 'r') as config_file:
+    with open(file, 'r') as config_file:
         return yaml.load(config_file, Loader=yaml.FullLoader)
+
+
+def gen_config_files(config):
+    config_list = []
+    alignment_functions = ['dot', 'concat', 'general']
+    attention_mechanism = ['soft']  # TODO: hard attention
+    vector_combination = ['mean', 'sum', 'concat']  # TODO layer
+    q_prediction = ['last', 'all']
+    q_shapes = ['original', None]
+    for af in alignment_functions:
+        for am in attention_mechanism:
+            for vc in vector_combination:
+                for qp in q_prediction:
+                    for qs in q_shapes:
+                        config_list.append({**config, 'alignment_function': af, 'attention_mechanism': am,
+                                            'vector_combination': vc, 'q_prediction': qp, 'q_shape': qs})
+    return config_list

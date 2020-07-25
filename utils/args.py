@@ -33,7 +33,7 @@ def parse():
         config = {'mode': 'train'}
 
     if args.config:
-        config_provided = c.load_config_file(config['mode'])
+        config_provided = c.load_config_file(args.config)
         config = {**config, **config_provided, 'default': False}
     else:
         config = {**config, 'default': True}
@@ -46,8 +46,9 @@ def parse():
     if args.output:
         config = {**config, 'output': args.output}
     else:
-        output = '../output/'
-        config = {**config, 'output': output}
+        if 'output' not in config:
+            output = '../output/'
+            config = {**config, 'output': output}
 
     config = {**config, 'head': args.head if args.head else 'cnn'}
 

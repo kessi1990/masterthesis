@@ -14,11 +14,13 @@ from utils import args as a
 from utils import config as c
 from utils import transformation
 from utils import io
+from utils import shapes
 
 args = a.parse()
 config = c.make_config(args)
-print(config)
-working_dir = io.make_dir(config['output'])
+directory = io.make_dir(config['output'])
+config = shapes.compute_sizes(config)
+io.write_config(config, directory)
 env = gym.make(config['environment'])
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 t = transformation.Transformation(config)
@@ -35,7 +37,7 @@ def plot(data, name):
     plt.plot(list(data))
     plt.xlabel('Training Steps')
     plt.ylabel(f'{name}')
-    f.savefig(f'{working_dir}/{name}.png')
+    f.savefig(f'{directory}{name}.png')
 
 
 if __name__ == '__main__':
@@ -71,7 +73,12 @@ if __name__ == '__main__':
                 end = datetime.datetime.utcnow()
                 print(f'done after {steps} steps, duration: {end-start}')
                 discounted_returns.append(discounted_return)
+                if episode % 10 == 0:
+                    io.save_model(ead_agent.policy_net, directory)
                 break
-    plot(lstm_loss, 'encoder_decoder_loss')
+
+    data = {'loss': q_loss, 'discounted_returns': discounted_returns}
+    io.save_json(data, directory)
+    io.save_model(ead_agent.policy_net, directory)
     plot(q_loss, 'q_loss')
     plot(discounted_returns, 'discounted_returns')
