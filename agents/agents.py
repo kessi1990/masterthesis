@@ -12,6 +12,9 @@ from utils import transformation
 
 
 class Agent(ABC):
+    """
+    abstract agent class from which other agent classes inherit
+    """
     def __init__(self):
         super().__init__()
 
@@ -33,11 +36,32 @@ class Agent(ABC):
 
 
 class DQN(Agent):
-    def __init__(self, in_channels, input_size, nr_actions, kernel_size, stride, padding, epsilon, epsilon_decay,
-                 learning_rate, discount_factor, batch_size, k_target, config):
+    """
+    basic DQN agent implementation according to Mnih et al. "Playing Atari with Deep Reinforcement Learning"
+    """
+    def __init__(self, in_channels, input_size, nr_actions, kernel_size, stride, padding, epsilon, epsilon_min,
+                 epsilon_decay, learning_rate, discount_factor, batch_size, k_target, config):
+        """
+
+        :param in_channels: number of channels from input image
+        :param input_size: size of input image
+        :param nr_actions: number of possible actions in some atari environment
+        :param kernel_size: size of filters / kernels
+        :param stride: kernel stepping, moves n=stride steps further
+        :param padding: padding zeros
+        :param epsilon: numerical value for  exploitation / exploration trade-off
+        :param epsilon_min: minimal value of epsilon
+        :param epsilon_decay: decay factor for minimizing epsilon value
+        :param learning_rate: initial learning rate, defines how strong weight updates are taken into account
+        :param discount_factor: discounting factor, diminishing future rewards
+        :param batch_size: size of batch
+        :param k_target: counting parameter, defines the time of weight update for target network
+        :param config: config file containing necessary parameters
+        """
         super(Agent).__init__()
         self.memory = deque()
         self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
@@ -52,9 +76,25 @@ class DQN(Agent):
         self.transformation = transformation.Transformation(config)
 
     def append_sample(self, state, action, reward, next_state, done):
+        """
+        saves experience tuple to internal memory buffer of the agent
+        :param state:
+        :param action:
+        :param reward:
+        :param next_state:
+        :param done:
+        :return:
+        """
         self.memory.append((state, action, reward, next_state, done))
 
     def policy(self, state):
+        """
+        policy pi defining behaviour of agent. with probability epsilon a random action is selected. with complementary
+        probability 1 - epsilon, a prediction of Q-values based on current state is made and the corresponding action to
+        the highest predicted Q-value is chosen for execution
+        :param state: current state
+        :return: action
+        """
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.action_space)
         else:
@@ -65,12 +105,26 @@ class DQN(Agent):
             return np.argmax(q_values[0])
 
     def minimize_epsilon(self):
-        self.epsilon *= self.epsilon_decay
+        """
+        minimizes epsilon value which is used for greedy action selection
+        :return:
+        """
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
 
     def update_target_net(self):
+        """
+        updates target network by copying weights from policy network (hard update)
+        :return:
+        """
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def train(self):
+        """
+        trains policy network by sampling a mini batch of already experienced transitions from memory buffer and
+        constructing a loss which is propagated backwards through the network
+        :return: accumulated loss
+        """
         self.optimizer.zero_grad()
         self.policy_net.train()
         self.target_net.train()
@@ -90,8 +144,8 @@ class DQN(Agent):
             if dones[i]:
                 target = rewards[i]
             else:
-                q_new = self.target_net.forward(next_states[i].unsqueeze(dim=0))[0]
-                target = rewards[i] + self.discount_factor * np.argmax(q_new.detach().numpy())
+                q_new = self.target_net.forward(next_states[i])
+                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
             target = torch.tensor(target, requires_grad=True)
             loss += self.criterion(prediction, target)
             self.k_count += 1
@@ -110,9 +164,9 @@ class EADAgent(Agent):
     def __init__(self, config, nr_actions, device):
         """
 
-        :param config:
-        :param nr_actions:
-        :param device:
+        :param config: config file containing parameters
+        :param nr_actions: number of possible actions in some atari environment
+        :param device: device which is in charge of computations (CPU / GPU)
         """
         super(EADAgent, self).__init__()
         self.device = device
@@ -129,9 +183,14 @@ class EADAgent(Agent):
         self.k_count = 0
         self.memory = deque(maxlen=config['mem_size'])
 
+        # Networks
         self.policy_net = models.EADModel(config, nr_actions, self.device).to(self.device)
         self.target_net = models.EADModel(config, nr_actions, self.device).to(self.device)
+
+        # Network parameter
         params = list(self.policy_net.parameters()) + list(self.target_net.parameters())
+
+        # Optimizer and Loss
         self.optimizer = optim.Adam(params, lr=self.learning_rate)
         self.criterion = nn.MSELoss().to(self.device)
 
@@ -149,8 +208,10 @@ class EADAgent(Agent):
 
     def policy(self, state_sequence):
         """
-        policy of the agent (epsilon-greedy)
-        :param state_sequence: sequence (length=3) of consecutive states
+        policy pi defining behaviour of agent. with probability epsilon a random action is selected. with complementary
+        probability 1 - epsilon, a prediction of Q-values based on current state sequence is made and the corresponding
+        action to the highest predicted Q-value is chosen for execution
+        :param state_sequence: sequence of states
         :return: action
         """
         if np.random.rand() <= self.epsilon:
@@ -162,7 +223,7 @@ class EADAgent(Agent):
 
     def minimize_epsilon(self):
         """
-
+        minimizes epsilon value which is used for greedy action selection
         :return:
         """
         if self.epsilon > self.epsilon_min:
@@ -170,7 +231,8 @@ class EADAgent(Agent):
 
     def train(self):
         """
-
+        trains policy network by sampling a mini batch of already experienced transitions from memory buffer and
+        constructing a loss which is propagated backwards through the network
         :return:
         """
         self.optimizer.zero_grad()
@@ -187,7 +249,6 @@ class EADAgent(Agent):
         for i in range(self.batch_size):
             q_old = self.policy_net.forward(state_sequences[i])
             prediction = q_old[0][actions[i]]
-            # prediction = prediction.clone().detach().requires_grad_(True)
             if dones[i]:
                 target = rewards[i]
             else:
@@ -207,4 +268,8 @@ class EADAgent(Agent):
         return loss
 
     def update_target(self):
+        """
+        updates target network by copying weights from policy network (hard update)
+        :return:
+        """
         self.target_net.load_state_dict(self.policy_net.state_dict())
