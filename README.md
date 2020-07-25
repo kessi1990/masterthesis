@@ -1,5 +1,5 @@
 # Attention-driven Learning of Temporal Abstractions in Reinforcement Learning
-------------
+
 Code repository for master thesis 'Attention-driven Learning of Temporal Abstractions in Reinforcement Learning'.
 
 ## Getting Started
