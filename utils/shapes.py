@@ -26,7 +26,7 @@ def cnn_out_size(size, filter_size, stride, padding=0, layers=3):
     :param layers: number of convolutional layers
     :return: output size of current / last layer
     """
-    if layers == 0:
+    if layers == 1:
         return int(((size - filter_size + (2 * padding)) / stride) + 1)
     else:
         size = int(((size - filter_size + (2 * padding)) / stride) + 1)
@@ -87,6 +87,7 @@ def compute_sizes(config):
     nr_vectors, dim = encoder_in_features(config['max_filters'], cnn_out, config['vector_combination'],
                                           config['input_length'])
     batch, features = q_in_features(config['max_filters'], nr_vectors, dim, config)
+
     config = {**config, 'input_size_enc': dim, 'hidden_size_enc': dim, 'input_size_dec': dim, 'hidden_size_dec': dim,
               'input_size_q': features, 'cnn_out': cnn_out}
     return config

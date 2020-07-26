@@ -33,7 +33,7 @@ mode: train
 nr_layers_dec: 4
 nr_layers_enc: 4
 out_channels: 1
-output: ../output/test_0004
+output: ../output/
 q_prediction: last
 q_shape: original
 std:
