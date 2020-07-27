@@ -2,6 +2,7 @@ import os
 import yaml
 import json
 import torch
+from datetime import datetime
 
 
 def make_dir(output, test=False):
@@ -10,6 +11,7 @@ def make_dir(output, test=False):
     else:
         os.mkdir(output, 0o755)
     if not test:
+        """
         path = output + 'ID_'
         i = 0
         while True:
@@ -21,6 +23,12 @@ def make_dir(output, test=False):
                 break
         os.mkdir(path, 0o755)
         return path + '/'
+        """
+        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%f')
+        path = output + timestamp
+        os.mkdir(path, 0o755)
+        return path + '/'
+
     else:
         return output + '/'
 
