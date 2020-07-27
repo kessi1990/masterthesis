@@ -8,7 +8,7 @@ def make_dir(output, test=False):
     if os.path.exists(output):
         print(f'output directory {output} already exists')
     else:
-        os.mkdir(output, 777)
+        os.mkdir(output, 0o755)
     if not test:
         path = output + 'ID_'
         i = 0
@@ -19,7 +19,7 @@ def make_dir(output, test=False):
             else:
                 path = path + f'{i:04d}'
                 break
-        os.mkdir(path, 777)
+        os.mkdir(path, 0o755)
         return path + '/'
     else:
         return output + '/'
