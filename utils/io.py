@@ -14,8 +14,8 @@ def make_dir(config):
         os.mkdir(config['output'], 0o755)
     while True:
         time.sleep(random.randint(1, 5))
-        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%H-%M-%S')
-        path = config['output'] + timestamp
+        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%H-%M-%S__')
+        path = config['output'] + timestamp + config['id']
         if os.path.exists(path):
             continue
         else:

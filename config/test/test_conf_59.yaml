@@ -6,13 +6,14 @@ crop_height: 84
 crop_width: 84
 default: true
 environment: Breakout-v0
-epsilon: 1.0e-06
+epsilon: 1
 epsilon_decay: 0.999
 epsilon_min: 0.05
 gamma: 0.99
 head: cnn
 hidden_size_dec: 512
 hidden_size_enc: 512
+id: '59'
 image_height: 210
 image_width: 160
 in_channels: 1
@@ -41,6 +42,6 @@ std:
 - 0.224
 - 0.225
 top: 17
-total_episodes: 1
-train_start: 33
+total_episodes: 250
+train_start: 250
 vector_combination: concat
