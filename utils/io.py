@@ -2,35 +2,26 @@ import os
 import yaml
 import json
 import torch
+import time
+import random
 from datetime import datetime
 
 
-def make_dir(output, test=False):
-    if os.path.exists(output):
-        print(f'output directory {output} already exists')
+def make_dir(config):
+    if os.path.exists(config['output']):
+        print(f'output directory {config["output"]} already exists')
     else:
-        os.mkdir(output, 0o755)
-    if not test:
-        """
-        path = output + 'ID_'
-        i = 0
-        while True:
-            if os.path.exists(path + f'{i:04d}'):
-                i += 1
-                continue
-            else:
-                path = path + f'{i:04d}'
-                break
-        os.mkdir(path, 0o755)
-        return path + '/'
-        """
-        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%f')
-        path = output + timestamp
-        os.mkdir(path, 0o755)
-        return path + '/'
-
-    else:
-        return output + '/'
+        os.mkdir(config['output'], 0o755)
+    while True:
+        time.sleep(random.randint(1, 5))
+        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%H-%M-%S')
+        path = config['output'] + timestamp
+        if os.path.exists(path):
+            continue
+        else:
+            os.mkdir(path, 0o755)
+            break
+    return path + '/'
 
 
 def write_config(config, directory):
@@ -38,10 +29,18 @@ def write_config(config, directory):
         yaml.dump(config, file)
 
 
-def save_model(model, path):
-    torch.save(model.state_dict(), path + 'model.pt')
+def write_info(config, directory):
+    with open(directory + 'info.txt', 'x') as file:
+        params = f'am={config["attention_mechanism"]}_af={config["alignment_function"]}_' \
+                 f'vc={config["vector_combination"]}_qp={config["q_prediction"]}_qs={config["q_shape"]}'
+        file.write(params)
 
 
-def save_json(data, directory):
+def save_model(model_p, model_t, path):
+    torch.save(model_p.state_dict(), path + 'model_policy.pt')
+    torch.save(model_t.state_dict(), path + 'model_target.pt')
+
+
+def save_results(data, directory):
     with open(directory + 'results.json', 'w') as file:
         json.dump(data, file)

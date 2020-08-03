@@ -1,12 +1,9 @@
 import sys
 sys.path.append('..')
-import matplotlib
-matplotlib.use('Agg')
 import torch
 import gym
 import datetime
 import copy
-import matplotlib.pyplot as plt
 from collections import deque
 
 from agents import agents as agent
@@ -18,9 +15,10 @@ from utils import shapes
 
 args = a.parse()
 config = c.make_config(args)
-directory = io.make_dir(config['output'])
+directory = io.make_dir(config)
 config = shapes.compute_sizes(config)
 io.write_config(config, directory)
+io.write_info(config, directory)
 env = gym.make(config['environment'])
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 t = transformation.Transformation(config)
@@ -29,15 +27,6 @@ total_steps = 0
 state_seq = deque(maxlen=config['input_length'])
 q_loss = []
 discounted_returns = []
-
-
-# used for plotting loss and discounted return during training. very basic --> TODO: plotting module
-def plot(data, name):
-    f = plt.figure()
-    plt.plot(list(data))
-    plt.xlabel('Training Steps')
-    plt.ylabel(f'{name}')
-    f.savefig(f'{directory}{name}.png')
 
 
 if __name__ == '__main__':
@@ -72,13 +61,15 @@ if __name__ == '__main__':
             if done:
                 end = datetime.datetime.utcnow()
                 print(f'done after {steps} steps, duration: {end-start}')
+                print(f'AVG loss: {sum(q_loss) / len(q_loss) if len(q_loss) > 0 else 0}')
                 discounted_returns.append(discounted_return)
                 if episode % 10 == 0:
-                    io.save_model(ead_agent.policy_net, directory)
+                    # results = {'loss': q_loss, 'discounted_returns': discounted_returns}
+                    # io.save_results(results, directory)
+                    # io.save_model(ead_agent.policy_net, ead_agent.target_net, directory)
+                    pass
                 break
 
-    data = {'loss': q_loss, 'discounted_returns': discounted_returns}
-    io.save_json(data, directory)
-    io.save_model(ead_agent.policy_net, directory)
-    plot(q_loss, 'q_loss')
-    plot(discounted_returns, 'discounted_returns')
+    results = {'loss': q_loss, 'discounted_returns': discounted_returns}
+    io.save_results(results, directory)
+    io.save_model(ead_agent.policy_net, ead_agent.target_net, directory)

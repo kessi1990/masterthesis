@@ -41,7 +41,7 @@ class Encoder(nn.Module):
     """
     encoder (LSTM), encodes input sequence
     """
-    def __init__(self, input_size, hidden_size, nr_layers):
+    def __init__(self, input_size, hidden_size, nr_layers, device):
         """
 
         :param input_size: size of input features
@@ -49,6 +49,9 @@ class Encoder(nn.Module):
         :param nr_layers: number of stacking layers
         """
         super(Encoder, self).__init__()
+        self.hidden_size = hidden_size
+        self.nr_layers = nr_layers
+        self.device = device
         self.lstm = nn.LSTM(input_size, hidden_size, nr_layers)
 
     def forward(self, input_sequence):
@@ -57,8 +60,19 @@ class Encoder(nn.Module):
         :param input_sequence: feature maps from CNN as sequence
         :return: encoded sequence, last hidden state and last cell state of LSTM
         """
+        (h_0, c_0) = self.init_hidden(self.device)
         output_sequence, (h_n, c_n) = self.lstm(input_sequence)
         return output_sequence, (h_n, c_n)
+
+    def init_hidden(self, device, batch_size=1):
+        """
+        initializes first hidden state and cell state of LSTM
+        :param batch_size: batch size
+        :param device: device on which returned tensor is stored (CPU / GPU)
+        :return: initial hidden state and cell state tensor
+        """
+        return (torch.zeros(self.nr_layers, batch_size, self.hidden_size, device=device),
+                torch.zeros(self.nr_layers, batch_size, self.hidden_size, device=device))
 
 
 class Attention(nn.Module):
@@ -79,8 +93,8 @@ class Attention(nn.Module):
         elif self.alignment_mechanism == 'location' or 'general':
             self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
         elif self.alignment_mechanism == 'concat':
-            # TODO
-            pass
+            self.weight = nn.Parameter(torch.rand([1, hidden_size]))
+            self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
 
     def forward(self, encoder_out, decoder_hidden):
         """
@@ -90,15 +104,15 @@ class Attention(nn.Module):
         :return: alignment score (scalar)
         """
         if self.alignment_mechanism == 'dot':
-            return torch.matmul(encoder_out, decoder_hidden[-1].transpose(0, 1))  # .squeeze().unsqueeze(dim=0)
+            return torch.matmul(encoder_out, decoder_hidden[-1].transpose(0, 1))
         elif self.alignment_mechanism == 'general':
             aligned = self.alignment_function(decoder_hidden)
             return torch.matmul(encoder_out, aligned)
         elif self.alignment_mechanism == 'location':
             return functional.softmax(self.alignment_function(decoder_hidden), dim=0)
         elif self.alignment_mechanism == 'concat':
-            # TODO
-            pass
+            aligned = torch.tanh(self.alignment_function(decoder_hidden + encoder_out))
+            return aligned.bmm(self.weight.unsqueeze(-1)).squeeze(-1)
 
 
 class Decoder(nn.Module):
@@ -234,7 +248,7 @@ class EADModel(nn.Module):
 
         self.encoder = Encoder(input_size=config['input_size_enc'],
                                hidden_size=config['hidden_size_enc'],
-                               nr_layers=config['nr_layers_enc'])
+                               nr_layers=config['nr_layers_enc'], device=device)
 
         self.attention_layer = Attention(hidden_size=config['input_size_enc'],
                                          alignment_mechanism=config['alignment_function'])
@@ -250,6 +264,9 @@ class EADModel(nn.Module):
         self.config = config
         self.vector_combination = config['vector_combination']
         self.q_prediction = config['q_prediction']
+
+        if self.vector_combination == 'layer':
+            self.concat_layer = nn.Linear(config['hidden_size'] * config['input_length'], config['hidden_size'])
 
     def forward(self, state_sequence):
         """
@@ -294,5 +311,4 @@ class EADModel(nn.Module):
         elif self.vector_combination == 'concat':
             return reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors)
         else:
-            # TODO
-            pass
+            return self.concat_layer(reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors))

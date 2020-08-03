@@ -1,4 +1,4 @@
-alignment_function: general
+alignment_function: location
 attention_mechanism: soft
 batch_size: 32
 cnn_out: 8
@@ -6,7 +6,7 @@ crop_height: 84
 crop_width: 84
 default: true
 environment: Breakout-v0
-epsilon: 1
+epsilon: 1.0e-06
 epsilon_decay: 0.999
 epsilon_min: 0.05
 gamma: 0.99
@@ -41,6 +41,6 @@ std:
 - 0.224
 - 0.225
 top: 17
-total_episodes: 250
-train_start: 250
-vector_combination: sum
+total_episodes: 1
+train_start: 33
+vector_combination: layer

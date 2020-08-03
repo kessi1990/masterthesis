@@ -35,23 +35,21 @@ def cnn_out_size(size, filter_size, stride, padding=0, layers=3):
 
 def encoder_in_features(filters, size, combination, input_length=4):
     """
-    computes number of features w.r.t previous executed vector combination method
+    computes number of features w.r.t previous applied vector combination method
     :param filters: number of features / filter maps from CNN
     :param size: (quadratic) size of single filter / feature map
     :param combination: vector combination method
     :param input_length: length of original input sequence (consecutive images to CNN)
     :return: number (=sequence length LSTM) and dimension (=features / hidden size) of vectors
     """
-    if combination == 'mean' or combination == 'sum':
-        dim = filters
-        nr_vectors = size * size
-        return nr_vectors, dim
-    elif combination == 'concat':
+    if combination == 'concat':
         dim = filters * input_length
         length = size * size
         return length, dim
     else:
-        pass
+        dim = filters
+        nr_vectors = size * size
+        return nr_vectors, dim
 
 
 def q_in_features(filters, nr_vectors, dim, config):
