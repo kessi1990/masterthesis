@@ -31,8 +31,11 @@ def write_config(config, directory):
 
 def write_info(config, directory):
     with open(directory + 'info.txt', 'x') as file:
-        params = f'am={config["attention_mechanism"]}_af={config["alignment_function"]}_' \
-                 f'vc={config["vector_combination"]}_qp={config["q_prediction"]}_qs={config["q_shape"]}'
+        params = f'attention_mechanism={config["attention_mechanism"]}\n' \
+                 f'alignment_function={config["alignment_function"]}\n' \
+                 f'vector_combination={config["vector_combination"]}\n' \
+                 f'q_prediction={config["q_prediction"]}\n' \
+                 f'q_shape={config["q_shape"]}'
         file.write(params)
 
 

@@ -21,6 +21,7 @@ io.write_config(config, directory)
 io.write_info(config, directory)
 env = gym.make(config['environment'])
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f'device: {device}')
 t = transformation.Transformation(config)
 
 total_steps = 0
