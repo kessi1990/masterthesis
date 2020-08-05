@@ -7,7 +7,7 @@ batch_size: 32
 train_start: 250
 k_target: 1000
 mem_size: 50000
-total_episodes: 250
+total_episodes: 300
 input_length: 4
 in_channels: 1
 max_filters: 128

@@ -1,4 +1,4 @@
-alignment_function: location
+alignment_function: general
 attention_mechanism: soft
 batch_size: 32
 cnn_out: 8
@@ -20,7 +20,7 @@ in_channels: 1
 input_length: 4
 input_size_dec: 512
 input_size_enc: 512
-input_size_q: 32768
+input_size_q: 8192
 k_target: 1000
 learning_rate: 0.001
 left: 0
@@ -42,6 +42,6 @@ std:
 - 0.224
 - 0.225
 top: 17
-total_episodes: 250
+total_episodes: 300
 train_start: 250
 vector_combination: concat

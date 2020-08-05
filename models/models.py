@@ -61,7 +61,7 @@ class Encoder(nn.Module):
         :return: encoded sequence, last hidden state and last cell state of LSTM
         """
         (h_0, c_0) = self.init_hidden(self.device)
-        output_sequence, (h_n, c_n) = self.lstm(input_sequence)
+        output_sequence, (h_n, c_n) = self.lstm(input_sequence, (h_0, c_0))
         return output_sequence, (h_n, c_n)
 
     def init_hidden(self, device, batch_size=1):
@@ -90,11 +90,11 @@ class Attention(nn.Module):
 
         if self.alignment_mechanism == 'dot':
             return
-        elif self.alignment_mechanism == 'location' or 'general':
+        elif self.alignment_mechanism == 'location' or self.alignment_mechanism == 'general':
             self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
         elif self.alignment_mechanism == 'concat':
             self.weight = nn.Parameter(torch.rand([1, hidden_size]))
-            self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
+            self.alignment_function = nn.Linear(hidden_size * 2, hidden_size, bias=False)
 
     def forward(self, encoder_out, decoder_hidden):
         """
@@ -106,13 +106,14 @@ class Attention(nn.Module):
         if self.alignment_mechanism == 'dot':
             return torch.matmul(encoder_out, decoder_hidden[-1].transpose(0, 1))
         elif self.alignment_mechanism == 'general':
-            aligned = self.alignment_function(decoder_hidden)
-            return torch.matmul(encoder_out, aligned)
+            aligned = self.alignment_function(decoder_hidden[-1])
+            return torch.matmul(encoder_out, aligned.transpose(0, 1))
         elif self.alignment_mechanism == 'location':
-            return functional.softmax(self.alignment_function(decoder_hidden), dim=0)
+            return functional.softmax(self.alignment_function(decoder_hidden[-1]), dim=0)
         elif self.alignment_mechanism == 'concat':
-            aligned = torch.tanh(self.alignment_function(decoder_hidden + encoder_out))
-            return aligned.bmm(self.weight.unsqueeze(-1)).squeeze(-1)
+            concat = torch.stack([torch.cat((member, decoder_hidden[-1]), dim=-1) for member in encoder_out], dim=0)
+            aligned = torch.tanh(self.alignment_function(concat))
+            return torch.matmul(aligned, self.weight.transpose(0, 1))
 
 
 class Decoder(nn.Module):
@@ -156,15 +157,6 @@ class Decoder(nn.Module):
             cell_state = decoder_hidden_c
             output.append(attentional_hidden)
         output = torch.stack(output, dim=0)
-        """
-        decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_sequence, (hidden_state, cell_state))
-        alignment_vector = self.attention.forward(encoder_out, decoder_hidden_s)
-        attention_weights = functional.softmax(alignment_vector, dim=0)
-        attention_applied = torch.mul(encoder_out, attention_weights)
-        context = torch.sum(attention_applied, dim=0)
-        context_concat_hidden = torch.cat((context, decoder_hidden_s[-1]), dim=-1)
-        attentional_hidden = torch.tanh(self.concat_layer(context_concat_hidden))
-        """
         return output
 
 
@@ -263,10 +255,11 @@ class EADModel(nn.Module):
 
         self.config = config
         self.vector_combination = config['vector_combination']
-        self.q_prediction = config['q_prediction']
+
+        self.q_prediction = config['q_prediction'] if 'q_prediction' in config else None
 
         if self.vector_combination == 'layer':
-            self.concat_layer = nn.Linear(config['hidden_size'] * config['input_length'], config['hidden_size'])
+            self.concat_layer = nn.Linear(config['hidden_size_enc'] * config['input_length'], config['hidden_size_enc'])
 
     def forward(self, state_sequence):
         """

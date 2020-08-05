@@ -1,4 +1,4 @@
-alignment_function: general
+alignment_function: concat
 attention_mechanism: soft
 batch_size: 32
 cnn_out: 8
@@ -11,15 +11,15 @@ epsilon_decay: 0.999
 epsilon_min: 0.05
 gamma: 0.99
 head: cnn
-hidden_size_dec: 128
-hidden_size_enc: 128
+hidden_size_dec: 512
+hidden_size_enc: 512
 id: '36'
 image_height: 210
 image_width: 160
 in_channels: 1
 input_length: 4
-input_size_dec: 128
-input_size_enc: 128
+input_size_dec: 512
+input_size_enc: 512
 input_size_q: 8192
 k_target: 1000
 learning_rate: 0.001
@@ -36,12 +36,12 @@ nr_layers_enc: 4
 out_channels: 1
 output: ../output/
 q_prediction: last
-q_shape: original
+q_shape: null
 std:
 - 0.229
 - 0.224
 - 0.225
 top: 17
-total_episodes: 250
+total_episodes: 300
 train_start: 250
-vector_combination: sum
+vector_combination: concat

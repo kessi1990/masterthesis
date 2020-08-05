@@ -44,8 +44,8 @@ def encoder_in_features(filters, size, combination, input_length=4):
     """
     if combination == 'concat':
         dim = filters * input_length
-        length = size * size
-        return length, dim
+        nr_vectors = size * size
+        return nr_vectors, dim
     else:
         dim = filters
         nr_vectors = size * size
@@ -61,13 +61,13 @@ def q_in_features(filters, nr_vectors, dim, config):
     :param config: config file for missing parameters
     :return: batch size and number of features (flattened)
     """
-    if config['q_shape'] == 'original':
+    if 'q_prediction' in config:
         if config['q_prediction'] == 'last':
             shape = (1, int(dim / (dim / filters)), nr_vectors)
         else:
             shape = (dim / filters, filters, nr_vectors)
     else:
-        shape = (1, dim, nr_vectors)
+        shape = (dim / filters, filters, nr_vectors)
     batch, *features = shape
     features = reduce(lambda x, y: x * y, features)
     return batch, features

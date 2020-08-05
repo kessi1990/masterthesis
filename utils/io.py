@@ -2,8 +2,7 @@ import os
 import yaml
 import json
 import torch
-import time
-import random
+from torchvision import transforms
 from datetime import datetime
 
 
@@ -13,8 +12,7 @@ def make_dir(config):
     else:
         os.mkdir(config['output'], 0o755)
     while True:
-        time.sleep(random.randint(1, 5))
-        timestamp = datetime.strftime(datetime.utcnow(), '%Y-%m-%d__%H-%M-%S__')
+        timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d__%H-%M-%S__')
         path = config['output'] + timestamp + config['id']
         if os.path.exists(path):
             continue
@@ -31,12 +29,9 @@ def write_config(config, directory):
 
 def write_info(config, directory):
     with open(directory + 'info.txt', 'x') as file:
-        params = f'attention_mechanism={config["attention_mechanism"]}\n' \
-                 f'alignment_function={config["alignment_function"]}\n' \
-                 f'vector_combination={config["vector_combination"]}\n' \
-                 f'q_prediction={config["q_prediction"]}\n' \
-                 f'q_shape={config["q_shape"]}'
-        file.write(params)
+        for k, v in config.items():
+            if k in ('attention_mechanism', 'alignment_function', 'vector_combination', 'q_shape', 'q_prediction'):
+                file.write(f'{k}: {v}\n')
 
 
 def save_model(model_p, model_t, path):
@@ -45,5 +40,21 @@ def save_model(model_p, model_t, path):
 
 
 def save_results(data, directory):
+    if os.path.exists(directory + 'results.json'):
+        results = load_results(directory)
+        results.update(data)
+    else:
+        results = data
     with open(directory + 'results.json', 'w') as file:
-        json.dump(data, file)
+        json.dump(results, file)
+
+
+def load_results(directory):
+    with open(directory + 'results.json', 'r') as file:
+        results = json.load(file)
+        return results
+
+
+def save_image(tensor, path):
+    image = transforms.ToPILImage()(tensor)
+    image.save(path)

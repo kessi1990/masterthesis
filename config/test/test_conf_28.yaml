@@ -1,4 +1,4 @@
-alignment_function: location
+alignment_function: general
 attention_mechanism: soft
 batch_size: 32
 cnn_out: 8
@@ -35,13 +35,12 @@ nr_layers_dec: 4
 nr_layers_enc: 4
 out_channels: 1
 output: ../output/
-q_prediction: last
 q_shape: original
 std:
 - 0.229
 - 0.224
 - 0.225
 top: 17
-total_episodes: 250
+total_episodes: 300
 train_start: 250
 vector_combination: layer

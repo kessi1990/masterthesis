@@ -22,18 +22,19 @@ def load_config_file(file):
 def gen_config_files(config):
     config_list = []
     alignment_functions = ['dot', 'location', 'general', 'concat']
-    attention_mechanism = ['soft', 'hard']  # TODO: hard attention
+    attention_mechanism = ['soft']  # TODO: hard attention
     vector_combination = ['mean', 'sum', 'concat', 'layer']
     q_prediction = ['last', 'all']
     q_shapes = ['original', None]
     for af in alignment_functions:
         for am in attention_mechanism:
             for vc in vector_combination:
-                for qp in q_prediction:
-                    for qs in q_shapes:
-                        if am == 'hard':
-                            continue
-                        else:
+                for qs in q_shapes:
+                    if vc == 'concat':
+                        for qp in q_prediction:
                             config_list.append({**config, 'alignment_function': af, 'attention_mechanism': am,
                                                 'vector_combination': vc, 'q_prediction': qp, 'q_shape': qs})
+                    else:
+                        config_list.append({**config, 'alignment_function': af, 'attention_mechanism': am,
+                                            'vector_combination': vc, 'q_shape': qs})
     return config_list
