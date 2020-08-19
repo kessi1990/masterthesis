@@ -5,9 +5,9 @@ epsilon_min: 0.05
 learning_rate: 0.001
 batch_size: 32
 train_start: 250
-k_target: 1000
+k_target: 5000
 mem_size: 50000
-total_episodes: 300
+total_episodes: 100
 input_length: 4
 in_channels: 1
 max_filters: 128

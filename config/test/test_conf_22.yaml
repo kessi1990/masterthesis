@@ -1,4 +1,4 @@
-alignment_function: general
+alignment_function: concat
 attention_mechanism: soft
 batch_size: 32
 cnn_out: 8
@@ -21,7 +21,7 @@ input_length: 4
 input_size_dec: 128
 input_size_enc: 128
 input_size_q: 8192
-k_target: 1000
+k_target: 5000
 learning_rate: 0.001
 left: 0
 max_filters: 128
@@ -34,13 +34,13 @@ mode: train
 nr_layers_dec: 4
 nr_layers_enc: 4
 out_channels: 1
-output: ../output/
+output: ../output_new/
 q_shape: original
 std:
 - 0.229
 - 0.224
 - 0.225
 top: 17
-total_episodes: 300
+total_episodes: 100
 train_start: 250
 vector_combination: sum

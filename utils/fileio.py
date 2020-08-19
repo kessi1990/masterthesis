@@ -13,13 +13,30 @@ def make_dir(config):
         os.mkdir(config['output'], 0o755)
     while True:
         timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d__%H-%M-%S__')
-        path = config['output'] + timestamp + config['id']
+        path = config['output'] + timestamp + 'ID-' + config['id']
         if os.path.exists(path):
             continue
         else:
             os.mkdir(path, 0o755)
             break
     return path + '/'
+
+
+def visual_dir(root):
+    sub_dir = 'visualization/'
+    full_path = os.path.join(root, sub_dir)
+    if os.path.exists(root + sub_dir):
+        pass
+    else:
+        os.mkdir(root + sub_dir)
+    if not os.listdir(root + sub_dir):
+        dir_count = 0
+    else:
+        dir_count = max(sorted(list(filter(lambda x: x is not None,
+                                           list(map(lambda x: int(x) if os.path.isdir(os.path.join(full_path, x))
+                                                    else None, os.listdir(full_path))))))) + 1
+    os.mkdir(os.path.join(full_path, str(dir_count)), 0o755)
+    return os.path.join(full_path, str(dir_count)) + '/'
 
 
 def write_config(config, directory):

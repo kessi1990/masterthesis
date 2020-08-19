@@ -21,7 +21,7 @@ def load_config_file(file):
 
 def gen_config_files(config):
     config_list = []
-    alignment_functions = ['dot', 'location', 'general', 'concat']
+    alignment_functions = ['dot', 'general', 'concat']
     attention_mechanism = ['soft']  # TODO: hard attention
     vector_combination = ['mean', 'sum', 'concat', 'layer']
     q_prediction = ['last', 'all']

@@ -9,6 +9,10 @@ from abc import ABC, abstractmethod
 
 from models import models
 from utils import transformation
+from utils import viz
+from utils import captain
+
+from datetime import datetime
 
 
 class Agent(ABC):
@@ -194,6 +198,13 @@ class EADAgent(Agent):
         self.optimizer = optim.Adam(params, lr=self.learning_rate)
         self.criterion = nn.MSELoss().to(self.device)
 
+        # Visualization
+        self.visor = viz.Visualizer(config)
+        self.viz_data = None
+
+        self.captain = captain.Captain()
+        self.register_hooks()
+
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
         stores transitions in memory buffer - used for experience replay
@@ -217,7 +228,7 @@ class EADAgent(Agent):
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.action_space)
         else:
-            q_values = self.policy_net.forward(state_sequence)
+            q_values, _ = self.policy_net.forward(state_sequence)
             action = torch.argmax(q_values[0]).item()
             return action
 
@@ -246,23 +257,27 @@ class EADAgent(Agent):
         next_state_sequences = mini_batch[:, 3]
         dones = mini_batch[:, 4]
         loss = 0
+        visualization_data = None
         for i in range(self.batch_size):
-            q_old = self.policy_net.forward(state_sequences[i])
+            q_old, visualization_data = self.policy_net.forward(state_sequences[i])
             prediction = q_old[0][actions[i]]
             if dones[i]:
                 target = rewards[i]
             else:
-                q_new = self.target_net.forward(next_state_sequences[i])
+                q_new, _ = self.target_net.forward(next_state_sequences[i])
                 target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
             target = torch.tensor(target, requires_grad=True, device=self.device)
             loss += self.criterion(prediction, target)
             self.k_count += 1
+        else:
+            self.viz_data = visualization_data
         loss.backward()
         self.optimizer.step()
 
         if self.k_count == self.k_target:
             self.update_target()
             self.k_count = 0
+            self.call_visor()
         self.policy_net.eval()
         self.target_net.eval()
         return loss
@@ -273,3 +288,14 @@ class EADAgent(Agent):
         :return:
         """
         self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def call_visor(self):
+        start = datetime.now()
+        self.visor.start(self.captain.data, self.policy_net.conv_net, self.viz_data)
+        end = datetime.now()
+        print(f'overall time for visualization: {end-start}')
+
+    def register_hooks(self):
+        self.policy_net.conv_net.conv_1.register_forward_hook(self.captain.hook('conv_1'))
+        self.policy_net.conv_net.conv_2.register_forward_hook(self.captain.hook('conv_2'))
+        self.policy_net.conv_net.conv_3.register_forward_hook(self.captain.hook('conv_3'))

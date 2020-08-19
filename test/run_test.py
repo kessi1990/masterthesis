@@ -7,7 +7,7 @@ import copy
 import gc
 from collections import deque
 
-from agents import agents as agent
+from agents import agents
 from utils import args as a
 from utils import config as c
 from utils import transformation
@@ -32,7 +32,7 @@ state_seq = deque(maxlen=config['input_length'])
 q_loss = []
 
 if __name__ == '__main__':
-    ead_agent = agent.EADAgent(config, env.action_space.n, device)
+    ead_agent = agents.EADAgent(config, env.action_space.n, device)
 
     for episode in range(config['total_episodes']):
         q_loss.clear()
@@ -46,8 +46,10 @@ if __name__ == '__main__':
         print('=============================')
         print(f'Episode {episode + 1} of {config["total_episodes"]}')
         start = datetime.datetime.utcnow()
+        # env.render()
 
         while not done:
+
             steps += 1
             total_steps += 1
             action = ead_agent.policy(state_seq)
@@ -61,6 +63,7 @@ if __name__ == '__main__':
                     loss = ead_agent.train()
                     q_loss.append(loss.item())
                     ead_agent.minimize_epsilon()
+                    done = True
             if done:
                 end = datetime.datetime.utcnow()
                 print(f'done after {steps} steps, duration: {end-start}')
@@ -69,9 +72,9 @@ if __name__ == '__main__':
                                          'avg_loss': sum(q_loss) / len(q_loss) if len(q_loss) > 0 else 0,
                                          'discounted_return': discounted_return}}
                 fileio.save_results(result, directory)
-                if episode % 10 == 0:
+                if episode % 10 == 0 or True:
                     fileio.save_model(ead_agent.policy_net, ead_agent.target_net, directory)
                 gc.collect()
                 break
 
-    fileio.save_model(ead_agent.policy_net, ead_agent.target_net, directory)
+    # io.save_model(ead_agent.policy_net, ead_agent.target_net, directory)

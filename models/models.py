@@ -4,10 +4,10 @@ import torch.nn.functional as functional
 
 from functools import reduce
 
-
 ################################################################################
 #                                  Model parts                                 #
 ################################################################################
+
 
 class CNN(nn.Module):
     """
@@ -90,7 +90,7 @@ class Attention(nn.Module):
 
         if self.alignment_mechanism == 'dot':
             return
-        elif self.alignment_mechanism == 'location' or self.alignment_mechanism == 'general':
+        elif self.alignment_mechanism == 'general':
             self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
         elif self.alignment_mechanism == 'concat':
             self.weight = nn.Parameter(torch.rand([1, hidden_size]))
@@ -104,16 +104,13 @@ class Attention(nn.Module):
         :return: alignment score (scalar)
         """
         if self.alignment_mechanism == 'dot':
-            return torch.matmul(encoder_out, decoder_hidden[-1].transpose(0, 1))
+            return torch.matmul(encoder_out.squeeze(), decoder_hidden[-1].squeeze())
         elif self.alignment_mechanism == 'general':
-            aligned = self.alignment_function(decoder_hidden[-1])
-            return torch.matmul(encoder_out, aligned.transpose(0, 1))
-        elif self.alignment_mechanism == 'location':
-            return functional.softmax(self.alignment_function(decoder_hidden[-1]), dim=0)
+            return torch.matmul(encoder_out.squeeze(), self.alignment_function(decoder_hidden[-1].squeeze()))
         elif self.alignment_mechanism == 'concat':
             concat = torch.stack([torch.cat((member, decoder_hidden[-1]), dim=-1) for member in encoder_out], dim=0)
             aligned = torch.tanh(self.alignment_function(concat))
-            return torch.matmul(aligned, self.weight.transpose(0, 1))
+            return torch.matmul(aligned.squeeze(), self.weight.squeeze())
 
 
 class Decoder(nn.Module):
@@ -142,22 +139,41 @@ class Decoder(nn.Module):
         :param cell_state: last cell state
         :return:
         """
-        input_vector = hidden_state[-1]
+
         output = []
+        context_vectors = []
+        applied_attention = []
+
+        input_vector = hidden_state[-1]
         for _ in input_sequence:
-            decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_vector.unsqueeze(dim=0), (hidden_state, cell_state))
+            decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_vector.unsqueeze(dim=0),
+                                                                          (hidden_state, cell_state))
             alignment_vector = self.attention.forward(encoder_out, decoder_hidden_s)
             attention_weights = functional.softmax(alignment_vector, dim=0)
-            attention_applied = torch.mul(encoder_out, attention_weights)
+            attention_applied = torch.mul(encoder_out.squeeze(), attention_weights.unsqueeze(dim=1))
             context = torch.sum(attention_applied, dim=0)
-            context_concat_hidden = torch.cat((context, decoder_hidden_s[-1]), dim=-1)
+            context_concat_hidden = torch.cat((context.unsqueeze(dim=0), decoder_hidden_s[-1]), dim=-1)
             attentional_hidden = torch.tanh(self.concat_layer(context_concat_hidden))
+
+            # next iteration
             input_vector = attentional_hidden
             hidden_state = decoder_hidden_s
             cell_state = decoder_hidden_c
+
             output.append(attentional_hidden)
+
+            # for visualization / plotting reasons
+            context_vectors.append(context)
+            applied_attention.append(attention_applied)
+
         output = torch.stack(output, dim=0)
-        return output
+
+        # for visualization / plotting reasons
+        context_vectors = torch.stack(context_vectors, dim=0).unsqueeze(dim=1)  # --> why unsqueeze() ?
+        applied_attention = torch.stack(applied_attention, dim=0)
+        visualization_data = {'context_vectors': context_vectors, 'applied_attention': applied_attention,
+                              'attentional_hidden': output}
+        return output, visualization_data
 
 
 class QNet(nn.Module):
@@ -272,7 +288,7 @@ class EADModel(nn.Module):
         input_sequence = self.build_vector(conv_out)
         input_sequence.unsqueeze_(dim=1)
         encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(input_sequence)
-        decoder_out = self.decoder.forward(input_sequence, encoder_out, encoder_h_n, encoder_c_n)
+        decoder_out, visualization_data = self.decoder.forward(input_sequence, encoder_out, encoder_h_n, encoder_c_n)
         q_in = decoder_out.squeeze(dim=1)
         if self.vector_combination == 'concat':
             q_in = torch.transpose(q_in, dim0=0, dim1=1)
@@ -285,7 +301,7 @@ class EADModel(nn.Module):
                 q_values = self.q_net.forward(q_in.reshape(self.config['input_length'], -1))
         else:
             q_values = self.q_net.forward(q_in.reshape(1, -1))
-        return q_values
+        return q_values, visualization_data
 
     def build_vector(self, conv_out):
         """
