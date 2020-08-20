@@ -5,9 +5,9 @@ cnn_out: 8
 crop_height: 84
 crop_width: 84
 default: true
-environment: Breakout-v0
+environment: Breakout-v4
 epsilon: 1
-epsilon_decay: 0.999
+epsilon_decay: 0.9995
 epsilon_min: 0.05
 gamma: 0.99
 head: cnn
@@ -22,7 +22,7 @@ input_size_dec: 512
 input_size_enc: 512
 input_size_q: 8192
 k_target: 5000
-learning_rate: 0.001
+learning_rate: 0.01
 left: 0
 max_filters: 128
 mean:

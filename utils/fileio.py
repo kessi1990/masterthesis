@@ -51,9 +51,10 @@ def write_info(config, directory):
                 file.write(f'{k}: {v}\n')
 
 
-def save_model(model_p, model_t, path):
+def save_model(model_p, model_t, optimizer, path):
     torch.save(model_p.state_dict(), path + 'model_policy.pt')
     torch.save(model_t.state_dict(), path + 'model_target.pt')
+    torch.save(optimizer.state_dict(), path + 'optimizer.pt')
 
 
 def save_results(data, directory):

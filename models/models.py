@@ -210,7 +210,7 @@ class DQNModel(nn.Module):
     """
 
     """
-    def __init__(self, in_channels, input_size, nr_actions, kernel_size, stride, padding):
+    def __init__(self, in_channels, input_size, nr_actions, kernel_size, stride):
         """
 
         :param in_channels:
@@ -218,12 +218,11 @@ class DQNModel(nn.Module):
         :param nr_actions:
         :param kernel_size:
         :param stride:
-        :param padding:
         """
         super(DQNModel, self).__init__()
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4)
-        self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv_3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
+        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=kernel_size, stride=stride)
+        self.conv_2 = nn.Conv2d(32, 64, kernel_size=kernel_size / 2, stride=stride / 2)
+        self.conv_3 = nn.Conv2d(64, 128, kernel_size=kernel_size / 4, stride=stride / 4)
         self.fc_1 = nn.Linear(input_size, 512)
         self.fc_2 = nn.Linear(512, nr_actions)
 

@@ -1,8 +1,8 @@
 gamma: 0.99
 epsilon: 1
-epsilon_decay: 0.999
+epsilon_decay: 0.9995
 epsilon_min: 0.05
-learning_rate: 0.001
+learning_rate: 0.01
 batch_size: 32
 train_start: 250
 k_target: 5000
@@ -13,4 +13,4 @@ in_channels: 1
 max_filters: 128
 nr_layers_enc: 4
 nr_layers_dec: 4
-environment: 'Breakout-v0'
+environment: 'Breakout-v4'

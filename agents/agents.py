@@ -280,6 +280,7 @@ class EADAgent(Agent):
             self.call_visor()
         self.policy_net.eval()
         self.target_net.eval()
+        self.minimize_epsilon()
         return loss
 
     def update_target(self):
@@ -290,10 +291,7 @@ class EADAgent(Agent):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def call_visor(self):
-        start = datetime.now()
         self.visor.start(self.captain.data, self.policy_net.conv_net, self.viz_data)
-        end = datetime.now()
-        print(f'overall time for visualization: {end-start}')
 
     def register_hooks(self):
         self.policy_net.conv_net.conv_1.register_forward_hook(self.captain.hook('conv_1'))

@@ -41,7 +41,7 @@ def parse():
     if args.environment:
         config = {**config, 'environment': args.environment}
     else:
-        config = {**config, 'environment': 'Breakout-v0'}
+        config = {**config, 'environment': 'Breakout-v4'}
 
     if args.output:
         config = {**config, 'output': args.output}
