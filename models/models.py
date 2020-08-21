@@ -143,6 +143,7 @@ class Decoder(nn.Module):
         output = []
         context_vectors = []
         applied_attention = []
+        weights = []
 
         input_vector = hidden_state[-1]
         for _ in input_sequence:
@@ -165,14 +166,17 @@ class Decoder(nn.Module):
             # for visualization / plotting reasons
             context_vectors.append(context)
             applied_attention.append(attention_applied)
+            weights.append(attention_weights)
 
         output = torch.stack(output, dim=0)
 
         # for visualization / plotting reasons
         context_vectors = torch.stack(context_vectors, dim=0).unsqueeze(dim=1)  # --> why unsqueeze() ?
         applied_attention = torch.stack(applied_attention, dim=0)
+        weights = torch.stack(weights, dim=0)
         visualization_data = {'context_vectors': context_vectors, 'applied_attention': applied_attention,
-                              'attentional_hidden': output}
+                              'attentional_hidden': output, 'weights': weights}
+
         return output, visualization_data
 
 

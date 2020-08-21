@@ -268,13 +268,14 @@ class EADAgent(Agent):
                 target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
             target = torch.tensor(target, requires_grad=True, device=self.device)
             loss += self.criterion(prediction, target)
-            self.k_count += 1
         else:
             self.viz_data = visualization_data
+        self.k_count += 1
         loss.backward()
         self.optimizer.step()
 
-        if self.k_count == self.k_target:
+        if self.k_count >= self.k_target:
+            print(f'updating target network')
             self.update_target()
             self.k_count = 0
             self.call_visor()

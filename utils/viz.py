@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torchvision.transforms import functional as f
 import matplotlib.pyplot as plt
@@ -43,7 +44,7 @@ class Visualizer(nn.Module):
                 i = 0
                 for y in range(columns):
                     for x in range(rows):
-                        axarr[x, y].imshow(feature_maps[i].squeeze())
+                        axarr[x, y].imshow(feature_maps[i].squeeze(), cmap=plt.get_cmap('gray'))
                         axarr[x, y].set_axis_off()
                         i += 1
                 fig.tight_layout()
@@ -57,7 +58,7 @@ class Visualizer(nn.Module):
         i = 0
         for y in range(columns):
             for x in range(rows):
-                axarr[x, y].imshow(self.normalize(kernels[i].squeeze()))
+                axarr[x, y].imshow(self.normalize(kernels[i].squeeze()), cmap=plt.get_cmap('gray'))
                 axarr[x, y].set_axis_off()
                 i += 1
         fig.tight_layout()
@@ -71,7 +72,7 @@ class Visualizer(nn.Module):
         i = 0
         for y in range(columns):
             for x in range(rows):
-                axarr[x, y].imshow(context[i].squeeze())
+                axarr[x, y].imshow(context[i].squeeze(), cmap=plt.get_cmap('plasma'))
                 axarr[x, y].set_axis_off()
                 i += 1
         # fig.tight_layout()
@@ -96,8 +97,62 @@ class Visualizer(nn.Module):
         self.cwd = fileio.visual_dir(self.root_dir)
 
     def start(self, cpt_data, cnn_model, visor_data):
+        self.attention_applied(visor_data['applied_attention'])
+        self.new(visor_data['attentional_hidden'], visor_data['weights'], cpt_data['conv_3'])
         self.activations(cpt_data)
         self.kernels(cnn_model.conv_1)
         self.context(visor_data['context_vectors'])
-        # self.attention_applied(visor_data['applied_attention'])
         self.update_cwd()
+
+    def new(self, attentional_hidden, weights, feature_maps):
+        att_h = attentional_hidden.squeeze().transpose(1, 0).reshape(128, 8, 8).detach()
+        rows, columns = 16, 8
+        fig, axarr = plt.subplots(rows, columns, figsize=(15, 12))
+        i = 0
+        for y in range(columns):
+            for x in range(rows):
+                axarr[x, y].imshow(att_h[i].squeeze(), cmap=plt.get_cmap('plasma'))
+                axarr[x, y].set_axis_off()
+                i += 1
+        fig.tight_layout()
+        plt.savefig(self.cwd + 'attentional_hidden_v1.png')
+        plt.close()
+
+        att_h = attentional_hidden.squeeze().transpose(1, 0).reshape(128, 8, 8).detach()
+        rows, columns = 16, 8
+        fig, axarr = plt.subplots(rows, columns, figsize=(15, 12))
+        i = 0
+        for y in range(columns):
+            for x in range(rows):
+                axarr[x, y].imshow(self.normalize(att_h[i].squeeze()), cmap=plt.get_cmap('plasma'))
+                axarr[x, y].set_axis_off()
+                i += 1
+        fig.tight_layout()
+        plt.savefig(self.cwd + 'attentional_hidden_v1_normalized.png')
+        plt.close()
+
+        att_h_2 = torch.sum(attentional_hidden, dim=2).squeeze().reshape(8, 8).detach()
+        plt.imshow(att_h_2, cmap='plasma')
+        fig.tight_layout()
+        plt.savefig(self.cwd + 'attenional_hidden_v2.png')
+        plt.close()
+
+        att_h_2_n = torch.sum(self.normalize(attentional_hidden), dim=2).squeeze().reshape(8, 8).detach()
+        plt.imshow(att_h_2_n, cmap='plasma')
+        fig.tight_layout()
+        plt.savefig(self.cwd + 'attenional_hidden_v2_normalized.png')
+        plt.close()
+
+        feature_maps_3 = feature_maps[-1].detach()
+        rows, columns = 16, 8
+        fig, axarr = plt.subplots(rows, columns, figsize=(15, 12))
+        i = 0
+        for y in range(columns):
+            for x in range(rows):
+                axarr[x, y].imshow(self.normalize(feature_maps_3[i].squeeze()), cmap=plt.get_cmap('gray'))
+                axarr[x, y].imshow(self.normalize(att_h[i].squeeze()), cmap=plt.get_cmap('plasma'), alpha=0.5)
+                axarr[x, y].set_axis_off()
+                i += 1
+        fig.tight_layout()
+        plt.savefig(self.cwd + 'a_h_fm.png')
+        plt.close()
