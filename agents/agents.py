@@ -278,7 +278,7 @@ class EADAgent(Agent):
             print(f'updating target network')
             self.update_target()
             self.k_count = 0
-            self.call_visor()
+            # self.call_visor()
         self.policy_net.eval()
         self.target_net.eval()
         self.minimize_epsilon()
