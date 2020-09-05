@@ -4,8 +4,9 @@ import torch
 import gym
 import datetime
 import copy
-import gc
-import random
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from collections import deque
 
 from utils import config as c
@@ -20,9 +21,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 5000000  # 5000000
-evaluation_start = 50000  # 50000
-evaluation_steps = 25000  # 25000
+training_steps = 5000000
+evaluation_start = 50000
+evaluation_steps = 25000
 
 
 def evaluate_model(model):
@@ -57,6 +58,7 @@ if __name__ == '__main__':
     agent = models_v2.DARQNAgent(env.action_space.n, device)
     start = datetime.datetime.now()
     evaluate = True
+    avg_returns = []
     for i in range(training_steps):
         agent.train()
         if i % evaluation_start == 0 and evaluate:
@@ -66,5 +68,12 @@ if __name__ == '__main__':
             avg_return = evaluate_model(agent)
             end_time = datetime.datetime.now()
             print(f'evaluation done! time: {end_time - start_time}')
+            avg_returns.append(avg_return)
     end = datetime.datetime.now()
     print(f'overall time: {end - start}')
+    print(avg_returns)
+    torch.save(agent.policy_net.state_dict(), 'model_policy.pt')
+    torch.save(agent.target_net.state_dict(), 'model_target.pt')
+    torch.save(agent.optimizer.state_dict(), 'optimizer.pt')
+    plt.plot(avg_returns)
+    plt.savefig('avg_returns.png')
