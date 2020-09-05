@@ -199,7 +199,7 @@ class EADAgent(Agent):
         self.criterion = nn.MSELoss().to(self.device)
 
         # Visualization
-        self.visor = viz.Visualizer(config)
+        # self.visor = viz.Visualizer(config)
         self.viz_data = None
 
         self.captain = captain.Captain()
@@ -278,7 +278,6 @@ class EADAgent(Agent):
             print(f'updating target network')
             self.update_target()
             self.k_count = 0
-            # self.call_visor()
         self.policy_net.eval()
         self.target_net.eval()
         self.minimize_epsilon()
@@ -292,7 +291,7 @@ class EADAgent(Agent):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def call_visor(self):
-        self.visor.start(self.captain.data, self.policy_net.conv_net, self.viz_data)
+        pass  # self.visor.start(self.captain.data, self.policy_net.conv_net, self.viz_data)
 
     def register_hooks(self):
         self.policy_net.conv_net.conv_1.register_forward_hook(self.captain.hook('conv_1'))

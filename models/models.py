@@ -33,7 +33,7 @@ class CNN(nn.Module):
         out = input_sequence.to(device=self.device)
         out = functional.relu(self.conv_1(out))
         out = functional.relu(self.conv_2(out))
-        out = functional.relu((self.conv_3(out)))
+        out = functional.relu(self.conv_3(out))
         return out
 
 
@@ -246,7 +246,7 @@ class DQNModel(nn.Module):
 
 class EADModel(nn.Module):
     """
-
+    Model 2 according to architecture sketches
     """
     def __init__(self, config, nr_actions, device):
         """
@@ -260,9 +260,6 @@ class EADModel(nn.Module):
         self.encoder = Encoder(input_size=config['input_size_enc'],
                                hidden_size=config['hidden_size_enc'],
                                nr_layers=config['nr_layers_enc'], device=device)
-
-        self.attention_layer = Attention(hidden_size=config['input_size_enc'],
-                                         alignment_mechanism=config['alignment_function'])
 
         self.decoder = Decoder(input_size=config['input_size_dec'],
                                hidden_size=config['hidden_size_dec'],
