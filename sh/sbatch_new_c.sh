@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-sbatch --gres=gpu:0 --output=cead_seaquest_1.txt --exclusive cead_c.sh Seaquest-v0 1
-sbatch --gres=gpu:0 --output=cead_spaceinvaders_1.txt --exclusive cead_c.sh SpaceInvaders-v0 1
-sbatch --gres=gpu:0 --output=cead_breakout_1.txt --exclusive cead_c.sh Breakout-v0 1
-sbatch --gres=gpu:0 --output=darqn_seaquest_1.txt --exclusive darqn_c.sh Seaquest-v0 1
-sbatch --gres=gpu:0 --output=darqn_spaceinvaders_1.txt --exclusive darqn_c.sh SpaceInvaders-v0 1
-sbatch --gres=gpu:0 --output=darqn_breakout_1.txt --exclusive darqn_c.sh Breakout-v0 1
-sbatch --gres=gpu:0 --output=cead_seaquest_49.txt --exclusive cead_c.sh Seaquest-v0 49
-sbatch --gres=gpu:0 --output=cead_spaceinvaders_49.txt --exclusive cead_c.sh SpaceInvaders-v0 49
-sbatch --gres=gpu:0 --output=cead_breakout_49.txt --exclusive cead_c.sh Breakout-v0 49
-sbatch --gres=gpu:0 --output=darqn_seaquest_49.txt --exclusive darqn_c.sh Seaquest-v0 49
-sbatch --gres=gpu:0 --output=darqn_spaceinvaders_49.txt --exclusive darqn_c.sh SpaceInvaders-v0 49
-sbatch --gres=gpu:0 --output=darqn_breakout_49.txt --exclusive darqn_c.sh Breakout-v0 49
-sbatch --gres=gpu:0 --output=cead_seaquest_256.txt --exclusive cead_c.sh Seaquest-v0 256
-sbatch --gres=gpu:0 --output=cead_spaceinvaders_256.txt --exclusive cead_c.sh SpaceInvaders-v0 256
-sbatch --gres=gpu:0 --output=cead_breakout_256.txt --exclusive cead_c.sh Breakout-v0 256
-sbatch --gres=gpu:0 --output=darqn_seaquest_256.txt --exclusive darqn_c.sh Seaquest-v0 256
-sbatch --gres=gpu:0 --output=darqn_spaceinvaders_256.txt --exclusive darqn_c.sh SpaceInvaders-v0 256
-sbatch --gres=gpu:0 --output=darqn_breakout_256.txt --exclusive darqn_c.sh Breakout-v0 256
+sbatch --partition=All --gres=gpu:0 --output=cead_seaquest_1.txt --exclusive cead_c.sh Seaquest-v0 1
+sbatch --partition=All --gres=gpu:0 --output=cead_spaceinvaders_1.txt --exclusive cead_c.sh SpaceInvaders-v0 1
+sbatch --partition=All --gres=gpu:0 --output=cead_breakout_1.txt --exclusive cead_c.sh Breakout-v0 1
+sbatch --partition=All --gres=gpu:0 --output=darqn_seaquest_1.txt --exclusive darqn_c.sh Seaquest-v0 1
+sbatch --partition=All --gres=gpu:0 --output=darqn_spaceinvaders_1.txt --exclusive darqn_c.sh SpaceInvaders-v0 1
+sbatch --partition=All --gres=gpu:0 --output=darqn_breakout_1.txt --exclusive darqn_c.sh Breakout-v0 1
+sbatch --partition=All --gres=gpu:0 --output=cead_seaquest_49.txt --exclusive cead_c.sh Seaquest-v0 49
+sbatch --partition=All --gres=gpu:0 --output=cead_spaceinvaders_49.txt --exclusive cead_c.sh SpaceInvaders-v0 49
+sbatch --partition=All --gres=gpu:0 --output=cead_breakout_49.txt --exclusive cead_c.sh Breakout-v0 49
+sbatch --partition=All --gres=gpu:0 --output=darqn_seaquest_49.txt --exclusive darqn_c.sh Seaquest-v0 49
+sbatch --partition=All --gres=gpu:0 --output=darqn_spaceinvaders_49.txt --exclusive darqn_c.sh SpaceInvaders-v0 49
+sbatch --partition=All --gres=gpu:0 --output=darqn_breakout_49.txt --exclusive darqn_c.sh Breakout-v0 49
+sbatch --partition=All --gres=gpu:0 --output=cead_seaquest_256.txt --exclusive cead_c.sh Seaquest-v0 256
+sbatch --partition=All --gres=gpu:0 --output=cead_spaceinvaders_256.txt --exclusive cead_c.sh SpaceInvaders-v0 256
+sbatch --partition=All --gres=gpu:0 --output=cead_breakout_256.txt --exclusive cead_c.sh Breakout-v0 256
+sbatch --partition=All --gres=gpu:0 --output=darqn_seaquest_256.txt --exclusive darqn_c.sh Seaquest-v0 256
+sbatch --partition=All --gres=gpu:0 --output=darqn_spaceinvaders_256.txt --exclusive darqn_c.sh SpaceInvaders-v0 256
+sbatch --partition=All --gres=gpu:0 --output=darqn_breakout_256.txt --exclusive darqn_c.sh Breakout-v0 256
