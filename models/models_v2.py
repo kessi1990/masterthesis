@@ -164,7 +164,7 @@ class DARQNAgent:
         self.epsilon_decay = 0.000005
         self.epsilon_min = 0.05
         self.discount_factor = 0.99
-        self.batch_size = 2
+        self.batch_size = 32
         self.memory = deque(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
@@ -252,7 +252,7 @@ class CEADNAgent:
         self.epsilon_decay = 0.000005
         self.epsilon_min = 0.05
         self.discount_factor = 0.99
-        self.batch_size = 2
+        self.batch_size = 32
         self.memory = deque(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
