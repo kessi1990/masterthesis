@@ -22,6 +22,20 @@ def make_dir(config):
     return path + '/'
 
 
+def mkdir(model, env, num_layers):
+    timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d_%H-%M-%S')
+    path = f'../output_new/{timestamp}_{model}_{env}_{num_layers}--'
+    i = 0
+    while True:
+        if os.path.exists(path + str(i)):
+            i += 1
+            continue
+        else:
+            os.mkdir(path + str(i), 0o755)
+            break
+    return path + str(i) + '/'
+
+
 def visual_dir(root):
     sub_dir = 'visualization/'
     full_path = os.path.join(root, sub_dir)
