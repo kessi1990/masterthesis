@@ -9,7 +9,7 @@ import gc
 
 from collections import deque
 
-from agents import agents
+from agents import agents as a
 from utils import config as c
 from utils import fileio
 from utils import transformation
@@ -84,7 +84,7 @@ def evaluate_model(model):
 
 
 if __name__ == '__main__':
-    agent = agents.DQN(model_type, env.action_space.n, device, num_layers)
+    agent = a.DQN(model_type, env.action_space.n, device, num_layers)
 
     evaluation_returns = []
     training_returns = []
