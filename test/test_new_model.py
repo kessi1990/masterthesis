@@ -12,7 +12,7 @@ from collections import deque
 from utils import config as c
 from utils import fileio
 from utils import transformation
-from models import models_v2
+from models import models
 
 
 config = c.load_config_file(f'../config/{sys.argv[1]}.yaml')
@@ -71,7 +71,7 @@ def plot_intermediate_results(losses, avg_returns):
 
 
 if __name__ == '__main__':
-    agent = models_v2.CEADNAgent(env.action_space.n, device)
+    agent = models.CEADNAgent(env.action_space.n, device)
     start = datetime.datetime.now()
     train_start = datetime.datetime.now()
     avg_returns = []

@@ -1,323 +1,442 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import torch.nn.functional as functional
+import numpy as np
+import random
 
-from functools import reduce
-
-################################################################################
-#                                  Model parts                                 #
-################################################################################
+from collections import deque
 
 
 class CNN(nn.Module):
     """
-    convolutional neural network (CNN)
+
     """
-    def __init__(self, in_channels, device):
+    def __init__(self, device):
         """
 
-        :param in_channels: number of channels
+        :param device:
         """
         super(CNN, self).__init__()
         self.device = device
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4)
-        self.conv_2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv_3 = nn.Conv2d(64, 128, kernel_size=2, stride=1)
+        self.conv_1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)
+        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)
+        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=3, stride=1)
 
-    def forward(self, input_sequence):
+    def forward(self, state):
         """
-        forwards input sequence through CNN and outputs feature maps
-        :param input_sequence: consecutive states from environment
-        :return: returns feature maps
+
+        :param state:
+        :return:
         """
-        out = input_sequence.to(device=self.device)
+        out = state.to(device=self.device)
         out = functional.relu(self.conv_1(out))
         out = functional.relu(self.conv_2(out))
         out = functional.relu(self.conv_3(out))
         return out
 
 
-class Encoder(nn.Module):
-    """
-    encoder (LSTM), encodes input sequence
-    """
-    def __init__(self, input_size, hidden_size, nr_layers, device):
-        """
-
-        :param input_size: size of input features
-        :param hidden_size: size hidden features
-        :param nr_layers: number of stacking layers
-        """
-        super(Encoder, self).__init__()
-        self.hidden_size = hidden_size
-        self.nr_layers = nr_layers
-        self.device = device
-        self.lstm = nn.LSTM(input_size, hidden_size, nr_layers)
-
-    def forward(self, input_sequence):
-        """
-        forwards input sequence through LSTM and outputs encoded sequence of same length
-        :param input_sequence: feature maps from CNN as sequence
-        :return: encoded sequence, last hidden state and last cell state of LSTM
-        """
-        (h_0, c_0) = self.init_hidden(self.device)
-        output_sequence, (h_n, c_n) = self.lstm(input_sequence, (h_0, c_0))
-        return output_sequence, (h_n, c_n)
-
-    def init_hidden(self, device, batch_size=1):
-        """
-        initializes first hidden state and cell state of LSTM
-        :param batch_size: batch size
-        :param device: device on which returned tensor is stored (CPU / GPU)
-        :return: initial hidden state and cell state tensor
-        """
-        return (torch.zeros(self.nr_layers, batch_size, self.hidden_size, device=device),
-                torch.zeros(self.nr_layers, batch_size, self.hidden_size, device=device))
-
-
 class Attention(nn.Module):
     """
-    attention layer, applies attention mechanism
+
     """
-    def __init__(self, hidden_size, alignment_mechanism):
+    def __init__(self):
         """
 
-        :param hidden_size: size of input features
-        :param alignment_mechanism: defines which alignment method is used
         """
         super(Attention, self).__init__()
-        self.alignment_mechanism = alignment_mechanism
+        self.fc_1 = nn.Linear(in_features=256, out_features=256)
+        self.fc_2 = nn.Linear(in_features=256, out_features=256)
 
-        if self.alignment_mechanism == 'dot':
-            return
-        elif self.alignment_mechanism == 'general':
-            self.alignment_function = nn.Linear(hidden_size, hidden_size, bias=False)
-        elif self.alignment_mechanism == 'concat':
-            self.weight = nn.Parameter(torch.rand([1, hidden_size]))
-            self.alignment_function = nn.Linear(hidden_size * 2, hidden_size, bias=False)
+    def forward(self, input_vectors, last_hidden_state):
+        """
 
-    def forward(self, encoder_out, decoder_hidden):
+        :param input_vectors:
+        :param last_hidden_state:
+        :return:
         """
-        aligns current target hidden state (decoder) with all source hidden state (encoder)
-        :param encoder_out: encoded sequence, contains all source hidden states
-        :param decoder_hidden: current target hidden states
-        :return: alignment score (scalar)
+        context = []
+        for vector in input_vectors:
+            attention_weighted_vector = self.fc_1(vector) + last_hidden_state
+            attention_weighted_vector = torch.tanh(attention_weighted_vector)
+            attention_weighted_vector = self.fc_2(attention_weighted_vector)
+            attention_weighted_vector = functional.softmax(attention_weighted_vector, dim=-1)  # / normalizing_const
+            c = attention_weighted_vector * vector
+            context.append(c.squeeze())
+        context = torch.sum(torch.stack(context, dim=0), dim=0).unsqueeze(dim=0).unsqueeze(dim=0)
+        return context
+
+
+class Encoder(nn.Module):
+    """
+
+    """
+    def __init__(self, num_layers):
         """
-        if self.alignment_mechanism == 'dot':
-            return torch.matmul(encoder_out.squeeze(), decoder_hidden[-1].squeeze())
-        elif self.alignment_mechanism == 'general':
-            return torch.matmul(encoder_out.squeeze(), self.alignment_function(decoder_hidden[-1].squeeze()))
-        elif self.alignment_mechanism == 'concat':
-            concat = torch.stack([torch.cat((member, decoder_hidden[-1]), dim=-1) for member in encoder_out], dim=0)
-            aligned = torch.tanh(self.alignment_function(concat))
-            return torch.matmul(aligned.squeeze(), self.weight.squeeze())
+
+        :param num_layers:
+        """
+        super(Encoder, self).__init__()
+        self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
+
+    def forward(self, input_sequence, hidden_state, hidden_cell):
+        """
+
+        :param input_sequence:
+        :param hidden_state:
+        :param hidden_cell:
+        :return:
+        """
+        output, (hidden_state, hidden_cell) = self.lstm(input_sequence, (hidden_state, hidden_cell))
+        return output.squeeze(dim=0), (hidden_state, hidden_cell)
 
 
 class Decoder(nn.Module):
     """
-    decoder (LSTM), decodes input sequence
+
     """
-    def __init__(self, input_size, hidden_size, nr_layers, alignment):
+    def __init__(self, num_layers):
         """
 
-        :param input_size: size of input features
-        :param hidden_size: size hidden features
-        :param nr_layers: number of stacking layers
-        :param alignment: defines which alignment method is used
+        :param num_layers:
         """
         super(Decoder, self).__init__()
-        self.attention = Attention(hidden_size=hidden_size, alignment_mechanism=alignment)
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=nr_layers)
-        self.concat_layer = nn.Linear(input_size*2, input_size)
+        self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
 
-    def forward(self, input_sequence, encoder_out, hidden_state, cell_state):
+    def forward(self, input_sequence, hidden_state, hidden_cell):
         """
-        forwards input sequence through decoder (LSTM), applies attention to input
-        :param input_sequence: feature maps from CNN as sequence
-        :param encoder_out: encoded sequence, contains all source hidden states
-        :param hidden_state: last hidden state
-        :param cell_state: last cell state
+
+        :param input_sequence:
+        :param hidden_state:
+        :param hidden_cell:
         :return:
         """
-
-        output = []
-        context_vectors = []
-        applied_attention = []
-        weights = []
-
-        input_vector = hidden_state[-1]
-        for _ in input_sequence:
-            decoder_out, (decoder_hidden_s, decoder_hidden_c) = self.lstm(input_vector.unsqueeze(dim=0),
-                                                                          (hidden_state, cell_state))
-            alignment_vector = self.attention.forward(encoder_out, decoder_hidden_s)
-            attention_weights = functional.softmax(alignment_vector, dim=0)
-            attention_applied = torch.mul(encoder_out.squeeze(), attention_weights.unsqueeze(dim=1))
-            context = torch.sum(attention_applied, dim=0)
-            context_concat_hidden = torch.cat((context.unsqueeze(dim=0), decoder_hidden_s[-1]), dim=-1)
-            attentional_hidden = torch.tanh(self.concat_layer(context_concat_hidden))
-
-            # next iteration
-            input_vector = attentional_hidden
-            hidden_state = decoder_hidden_s
-            cell_state = decoder_hidden_c
-
-            output.append(attentional_hidden)
-
-            # for visualization / plotting reasons
-            context_vectors.append(context)
-            applied_attention.append(attention_applied)
-            weights.append(attention_weights)
-
-        output = torch.stack(output, dim=0)
-
-        # for visualization / plotting reasons
-        context_vectors = torch.stack(context_vectors, dim=0).unsqueeze(dim=1)  # --> why unsqueeze() ?
-        applied_attention = torch.stack(applied_attention, dim=0)
-        weights = torch.stack(weights, dim=0)
-        visualization_data = {'context_vectors': context_vectors, 'applied_attention': applied_attention,
-                              'attentional_hidden': output, 'weights': weights}
-
-        return output, visualization_data
+        output, (hidden_state, hidden_cell) = self.lstm(input_sequence, (hidden_state, hidden_cell))
+        return output.squeeze(dim=0), (hidden_state, hidden_cell)
 
 
 class QNet(nn.Module):
     """
-    q-net, predicts q-values
+
     """
-    def __init__(self, input_size, nr_actions):
+    def __init__(self, nr_actions):
         """
 
-        :param input_size: size of input features
-        :param nr_actions: number of actions
+        :param nr_actions:
         """
         super(QNet, self).__init__()
-        self.fully_connected_4 = nn.Linear(input_size, 512)
-        self.fully_connected_5 = nn.Linear(512, nr_actions)
+        self.fc_1 = nn.Linear(in_features=256, out_features=nr_actions)
 
-    def forward(self, state):
+    def forward(self, decoder_out):
         """
 
-        :param state:
+        :param decoder_out:
         :return:
         """
-        out = functional.relu(self.fully_connected_4(state))
-        q_values = self.fully_connected_5(out)
+        return self.fc_1(decoder_out)
+
+
+class DARQNModel(nn.Module):
+    """
+
+    """
+    def __init__(self, nr_actions, device, num_layers):
+        """
+
+        :param nr_actions:
+        :param device:
+        :param num_layers:
+        """
+        super(DARQNModel, self).__init__()
+        self.device = device
+        self.num_layers = num_layers
+        self.cnn = CNN(device)
+        self.attention = Attention()
+        self.decoder = Decoder(num_layers)
+        self.q_net = QNet(nr_actions)
+
+        self.dec_h_t = None
+        self.dec_c_t = None
+        self.enc_h_t = None
+        self.enc_c_t = None
+
+    def forward(self, input_frames):
+        """
+
+        :param input_frames:
+        :return:
+        """
+        for input_frame in input_frames:
+            if self.dec_h_t is None:
+                self.init_hidden()
+            feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
+            input_vector = self.build_vector(feature_maps)
+            input_vector.unsqueeze_(dim=1)
+            context = self.attention.forward(input_vector, self.dec_h_t[-1])
+            decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
+            q_values = self.q_net(decoder_out)
         return q_values
 
-
-################################################################################
-#                                   Models                                     #
-################################################################################
-
-
-class DQNModel(nn.Module):
-    """
-
-    """
-    def __init__(self, in_channels, input_size, nr_actions, kernel_size, stride):
+    def init_hidden(self, batch_size=1):
         """
 
-        :param in_channels:
-        :param input_size:
-        :param nr_actions:
-        :param kernel_size:
-        :param stride:
-        """
-        super(DQNModel, self).__init__()
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=kernel_size, stride=stride)
-        self.conv_2 = nn.Conv2d(32, 64, kernel_size=kernel_size / 2, stride=stride / 2)
-        self.conv_3 = nn.Conv2d(64, 128, kernel_size=kernel_size / 4, stride=stride / 4)
-        self.fc_1 = nn.Linear(input_size, 512)
-        self.fc_2 = nn.Linear(512, nr_actions)
-
-    def forward(self, state):
-        """
-
-        :param state:
+        :param batch_size:
         :return:
         """
-        out = functional.relu(self.conv_1(state))
-        out = functional.relu(self.conv_2(out))
-        out = functional.relu(self.conv_3(out))
-        out = functional.relu(self.fc_1(out.view(1, -1)))
-        out = self.fc_2(out)
-        return out
+        self.enc_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.enc_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
 
-
-class EADModel(nn.Module):
-    """
-    Model 2 according to architecture sketches
-    """
-    def __init__(self, config, nr_actions, device):
+    @staticmethod
+    def build_vector(feature_maps):
         """
 
-        :param config:
-        :param nr_actions:
-        """
-        super(EADModel, self).__init__()
-        self.conv_net = CNN(config['in_channels'], device)
-
-        self.encoder = Encoder(input_size=config['input_size_enc'],
-                               hidden_size=config['hidden_size_enc'],
-                               nr_layers=config['nr_layers_enc'], device=device)
-
-        self.decoder = Decoder(input_size=config['input_size_dec'],
-                               hidden_size=config['hidden_size_dec'],
-                               nr_layers=config['nr_layers_dec'],
-                               alignment=config['alignment_function'])
-
-        self.q_net = QNet(input_size=config['input_size_q'],
-                          nr_actions=nr_actions)
-
-        self.config = config
-        self.vector_combination = config['vector_combination']
-
-        self.q_prediction = config['q_prediction'] if 'q_prediction' in config else None
-
-        if self.vector_combination == 'layer':
-            self.concat_layer = nn.Linear(config['hidden_size_enc'] * config['input_length'], config['hidden_size_enc'])
-
-    def forward(self, state_sequence):
-        """
-
-        :param state_sequence:
+        :param feature_maps:
         :return:
         """
-        conv_in = torch.stack(list(state_sequence), dim=0)
-        conv_out = self.conv_net.forward(conv_in)
-        input_sequence = self.build_vector(conv_out)
-        input_sequence.unsqueeze_(dim=1)
-        encoder_out, (encoder_h_n, encoder_c_n) = self.encoder.forward(input_sequence)
-        decoder_out, visualization_data = self.decoder.forward(input_sequence, encoder_out, encoder_h_n, encoder_c_n)
-        q_in = decoder_out.squeeze(dim=1)
-        if self.vector_combination == 'concat':
-            q_in = torch.transpose(q_in, dim0=0, dim1=1)
-            q_in = q_in.reshape(self.config['input_length'], self.config['max_filters'], self.config['cnn_out'] ** 2)
-            q_in = q_in.reshape(self.config['input_length'], self.config['max_filters'], self.config['cnn_out'],
-                                self.config['cnn_out'])
-            if self.q_prediction == 'last':
-                q_values = self.q_net.forward(q_in[-1].reshape(1, -1))
+        batch, _, height, width = feature_maps.shape
+        vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
+        return vectors
+
+
+class CEADModel(nn.Module):
+    """
+
+    """
+    def __init__(self, nr_actions, device, num_layers):
+        """
+
+        :param nr_actions:
+        :param device:
+        :param num_layers:
+        """
+        super(CEADModel, self).__init__()
+        self.device = device
+        self.num_layers = num_layers
+        self.cnn = CNN(device)
+        self.encoder = Encoder(num_layers)
+        self.attention = Attention()
+        self.decoder = Decoder(num_layers)
+        self.q_net = QNet(nr_actions)
+
+        self.dec_h_t = None
+        self.dec_c_t = None
+        self.enc_h_t = None
+        self.enc_c_t = None
+
+    def forward(self, input_frames):
+        """
+
+        :param input_frames:
+        :return:
+        """
+        for input_frame in input_frames:
+            if self.dec_h_t is None:
+                self.init_hidden()
+            feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
+            input_vector = self.build_vector(feature_maps)
+            input_vector.unsqueeze_(dim=1)
+            encoder_out, (self.enc_h_t, self.enc_c_t) = self.encoder.forward(input_vector, self.enc_h_t, self.enc_c_t)
+            context = self.attention.forward(encoder_out, self.dec_h_t[-1])
+            decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
+            q_values = self.q_net(decoder_out)
+        return q_values
+
+    def init_hidden(self, batch_size=1):
+        """
+
+        :param batch_size:
+        :return:
+        """
+        self.enc_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.enc_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+
+    @staticmethod
+    def build_vector(feature_maps):
+        """
+
+        :param feature_maps:
+        :return:
+        """
+        batch, _, height, width = feature_maps.shape
+        vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
+        return vectors
+
+
+class DARQNAgent:
+    def __init__(self, nr_actions, device, num_layers):
+        self.nr_actions = nr_actions
+        self.action_space = [_ for _ in range(self.nr_actions)]
+        print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
+        self.learning_rate = 0.01
+        self.epsilon = 1
+        self.epsilon_decay = 0.000005
+        self.epsilon_min = 0.05
+        self.discount_factor = 0.99
+        self.batch_size = 32
+        self.memory = deque(maxlen=500000)
+        self.k_count = 0
+        self.k_target = 10000
+
+        self.device = device
+
+        self.policy_net = DARQNModel(self.nr_actions, self.device, num_layers).to(self.device)
+        self.target_net = DARQNModel(self.nr_actions, self.device, num_layers).to(self.device)
+
+        self.target_net.eval()
+
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+        self.criterion = nn.MSELoss().to(self.device)
+
+    def append_sample(self, state_seq, action, reward, next_state_seq, done):
+        self.memory.append((state_seq, action, reward, next_state_seq, done))
+
+    def training_policy(self, state_sequence):
+        if np.random.rand() <= self.epsilon:
+            return np.random.choice(self.action_space)
+        else:
+            q_values = self.policy_net.forward(state_sequence)
+            action = torch.argmax(q_values[0]).item()
+            return action
+
+    def evaluation_policy(self, state_sequence):
+        if np.random.rand() <= 0.05:
+            return np.random.choice(self.action_space)
+        else:
+            q_values = self.policy_net.forward(state_sequence)
+            action = torch.argmax(q_values[0]).item()
+            return action
+
+    def minimize_epsilon(self):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon -= self.epsilon_decay
+
+    def train(self):
+        if len(self.memory) < self.batch_size:
+            return torch.zeros(1)
+        self.optimizer.zero_grad()
+        self.policy_net.train()
+        self.policy_net.init_hidden()
+        self.target_net.init_hidden()
+        mini_batch = random.sample(self.memory, self.batch_size)
+        mini_batch = np.array(mini_batch)
+        state_sequences = mini_batch[:, 0]
+        actions = mini_batch[:, 1]
+        rewards = mini_batch[:, 2]
+        next_state_sequences = mini_batch[:, 3]
+        dones = mini_batch[:, 4]
+        loss = 0
+        for i in range(self.batch_size):
+            q_old = self.policy_net.forward(state_sequences[i])
+            prediction = q_old[0][actions[i]]
+            if dones[i]:
+                target = rewards[i]
             else:
-                q_values = self.q_net.forward(q_in.reshape(self.config['input_length'], -1))
-        else:
-            q_values = self.q_net.forward(q_in.reshape(1, -1))
-        return q_values, visualization_data
+                q_new = self.target_net.forward(next_state_sequences[i])
+                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
+            target = torch.tensor(target, requires_grad=True, device=self.device)
+            loss += self.criterion(prediction, target)
+        self.k_count += 1
+        loss.backward()
+        self.optimizer.step()
 
-    def build_vector(self, conv_out):
-        """
+        if self.k_count >= self.k_target:
+            print(f'updating target network')
+            self.update_target()
+            self.k_count = 0
+        self.policy_net.eval()
+        return loss
 
-        :param conv_out:
-        :return:
-        """
-        batch, _, height, width = conv_out.shape
-        vectors = [torch.stack([conv_out[i][:, y, x] for y in range(height) for x in range(width)], dim=0)
-                   for i in range(batch)]
-        if self.vector_combination == 'mean':
-            length = len(vectors)
-            return reduce(lambda t1, t2: t1 + t2, vectors) / length
-        elif self.vector_combination == 'sum':
-            return reduce(lambda t1, t2: t1 + t2, vectors)
-        elif self.vector_combination == 'concat':
-            return reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors)
+    def update_target(self):
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+
+
+class CEADNAgent:
+    def __init__(self, nr_actions, device, num_layers):
+        self.nr_actions = nr_actions
+        self.action_space = [_ for _ in range(self.nr_actions)]
+        print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
+        self.learning_rate = 0.01
+        self.epsilon = 1
+        self.epsilon_decay = 0.000005
+        self.epsilon_min = 0.05
+        self.discount_factor = 0.99
+        self.batch_size = 32
+        self.memory = deque(maxlen=500000)
+        self.k_count = 0
+        self.k_target = 10000
+
+        self.device = device
+
+        self.policy_net = CEADModel(self.nr_actions, self.device, num_layers).to(self.device)
+        self.target_net = CEADModel(self.nr_actions, self.device, num_layers).to(self.device)
+
+        self.target_net.eval()
+
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+        self.criterion = nn.MSELoss().to(self.device)
+
+    def append_sample(self, state_seq, action, reward, next_state_seq, done):
+        self.memory.append((state_seq, action, reward, next_state_seq, done))
+
+    def training_policy(self, state_sequence):
+        if np.random.rand() <= self.epsilon:
+            return np.random.choice(self.action_space)
         else:
-            return self.concat_layer(reduce(lambda t1, t2: torch.cat((t1, t2), dim=-1), vectors))
+            q_values = self.policy_net.forward(state_sequence)
+            action = torch.argmax(q_values[0]).item()
+            return action
+
+    def evaluation_policy(self, state_sequence):
+        if np.random.rand() <= 0.05:
+            return np.random.choice(self.action_space)
+        else:
+            q_values = self.policy_net.forward(state_sequence)
+            action = torch.argmax(q_values[0]).item()
+            return action
+
+    def minimize_epsilon(self):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon -= self.epsilon_decay
+
+    def train(self):
+        if len(self.memory) < self.batch_size:
+            return torch.zeros(1)
+        self.optimizer.zero_grad()
+        self.policy_net.train()
+        self.policy_net.init_hidden()
+        self.target_net.init_hidden()
+        mini_batch = random.sample(self.memory, self.batch_size)
+        mini_batch = np.array(mini_batch)
+        state_sequences = mini_batch[:, 0]
+        actions = mini_batch[:, 1]
+        rewards = mini_batch[:, 2]
+        next_state_sequences = mini_batch[:, 3]
+        dones = mini_batch[:, 4]
+        loss = 0
+        for i in range(self.batch_size):
+            q_old = self.policy_net.forward(state_sequences[i])
+            prediction = q_old[0][actions[i]]
+            if dones[i]:
+                target = rewards[i]
+            else:
+                q_new = self.target_net.forward(next_state_sequences[i])
+                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
+            target = torch.tensor(target, requires_grad=True, device=self.device)
+            loss += self.criterion(prediction, target)
+        self.k_count += 1
+        loss.backward()
+        self.optimizer.step()
+
+        if self.k_count >= self.k_target:
+            print(f'updating target network')
+            self.update_target()
+            self.k_count = 0
+        self.policy_net.eval()
+        return loss
+
+    def update_target(self):
+        self.target_net.load_state_dict(self.policy_net.state_dict())

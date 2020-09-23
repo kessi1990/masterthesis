@@ -7,7 +7,7 @@ import random
 from collections import deque
 from abc import ABC, abstractmethod
 
-from models import models
+from models import models_old
 from utils import transformation
 from utils import viz
 from utils import captain
@@ -73,8 +73,8 @@ class DQN(Agent):
         self.k_target = k_target
         self.k_count = 0
         self.action_space = [_ for _ in range(nr_actions)]
-        self.policy_net = models.DQNModel(in_channels, input_size, nr_actions, kernel_size, stride, padding)
-        self.target_net = models.DQNModel(in_channels, input_size, nr_actions, kernel_size, stride, padding)
+        self.policy_net = models_old.DQNModel(in_channels, input_size, nr_actions, kernel_size, stride, padding)
+        self.target_net = models_old.DQNModel(in_channels, input_size, nr_actions, kernel_size, stride, padding)
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.transformation = transformation.Transformation(config)
@@ -188,14 +188,11 @@ class EADAgent(Agent):
         self.memory = deque(maxlen=config['mem_size'])
 
         # Networks
-        self.policy_net = models.EADModel(config, nr_actions, self.device).to(self.device)
-        self.target_net = models.EADModel(config, nr_actions, self.device).to(self.device)
-
-        # Network parameter
-        params = list(self.policy_net.parameters()) + list(self.target_net.parameters())
+        self.policy_net = models_old.EADModel(config, nr_actions, self.device).to(self.device)
+        self.target_net = models_old.EADModel(config, nr_actions, self.device).to(self.device)
 
         # Optimizer and Loss
-        self.optimizer = optim.Adam(params, lr=self.learning_rate)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss().to(self.device)
 
         # Visualization
