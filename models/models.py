@@ -1,21 +1,20 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as functional
-import numpy as np
-import random
 
-from collections import deque
+################################################################################
+#                                  Model parts                                 #
+################################################################################
 
 
 class CNN(nn.Module):
     """
-
+    convolutional neural network (CNN), extracts spatial features
     """
     def __init__(self, device):
         """
 
-        :param device:
+        :param device: cpu / gpu
         """
         super(CNN, self).__init__()
         self.device = device
@@ -25,9 +24,9 @@ class CNN(nn.Module):
 
     def forward(self, state):
         """
-
-        :param state:
-        :return:
+        forwards state through CNN and outputs feature maps
+        :param state: obtained from environment
+        :return: feature maps
         """
         out = state.to(device=self.device)
         out = functional.relu(self.conv_1(out))
@@ -38,7 +37,7 @@ class CNN(nn.Module):
 
 class Attention(nn.Module):
     """
-
+    attention layer, applies attention mechanism
     """
     def __init__(self):
         """
@@ -50,10 +49,10 @@ class Attention(nn.Module):
 
     def forward(self, input_vectors, last_hidden_state):
         """
-
-        :param input_vectors:
-        :param last_hidden_state:
-        :return:
+        aligns input_vectors and last hidden state, outputs linear combination (context vector)
+        :param input_vectors: transformed feature maps
+        :param last_hidden_state: last hidden state of decoder
+        :return: context vector
         """
         context = []
         for vector in input_vectors:
@@ -69,23 +68,23 @@ class Attention(nn.Module):
 
 class Encoder(nn.Module):
     """
-
+    encoder (LSTM), encodes input sequence
     """
     def __init__(self, num_layers):
         """
 
-        :param num_layers:
+        :param num_layers: number of LSTM layers
         """
         super(Encoder, self).__init__()
         self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
 
     def forward(self, input_sequence, hidden_state, hidden_cell):
         """
-
-        :param input_sequence:
-        :param hidden_state:
-        :param hidden_cell:
-        :return:
+        forwards input sequence through LSTM and outputs encoded sequence of same length
+        :param input_sequence: feature maps from CNN as sequence
+        :param hidden_state: current hidden state of LSTM
+        :param hidden_cell: current cell state of LSTM
+        :return: encoded sequence, last hidden state and last cell state of LSTM
         """
         output, (hidden_state, hidden_cell) = self.lstm(input_sequence, (hidden_state, hidden_cell))
         return output.squeeze(dim=0), (hidden_state, hidden_cell)
@@ -93,12 +92,12 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
     """
-
+    decoder (LSTM), decodes input sequence
     """
     def __init__(self, num_layers):
         """
 
-        :param num_layers:
+        :param num_layers: number of LSTM layers
         """
         super(Decoder, self).__init__()
         self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
@@ -106,10 +105,10 @@ class Decoder(nn.Module):
     def forward(self, input_sequence, hidden_state, hidden_cell):
         """
 
-        :param input_sequence:
-        :param hidden_state:
-        :param hidden_cell:
-        :return:
+        :param input_sequence: attention weighted input sequence / context vector
+        :param hidden_state: current hidden state of LSTM
+        :param hidden_cell: current cell state of LSTM
+        :return: decoded sequence, last hidden and cell state
         """
         output, (hidden_state, hidden_cell) = self.lstm(input_sequence, (hidden_state, hidden_cell))
         return output.squeeze(dim=0), (hidden_state, hidden_cell)
@@ -117,35 +116,40 @@ class Decoder(nn.Module):
 
 class QNet(nn.Module):
     """
-
+    q-net, predicts q-values
     """
     def __init__(self, nr_actions):
         """
 
-        :param nr_actions:
+        :param nr_actions: number of actions
         """
         super(QNet, self).__init__()
         self.fc_1 = nn.Linear(in_features=256, out_features=nr_actions)
 
     def forward(self, decoder_out):
         """
-
-        :param decoder_out:
-        :return:
+        takes decoder output and predicts q-values
+        :param decoder_out: decoder output
+        :return: q-values
         """
         return self.fc_1(decoder_out)
 
 
+################################################################################
+#                                   Models                                     #
+################################################################################
+
+
 class DARQNModel(nn.Module):
     """
-
+    darqn model according to "deep attention recurrent q-network" paper
     """
     def __init__(self, nr_actions, device, num_layers):
         """
 
-        :param nr_actions:
-        :param device:
-        :param num_layers:
+        :param nr_actions: number of actions
+        :param device: cpu / gpu
+        :param num_layers: number of LSTM cells
         """
         super(DARQNModel, self).__init__()
         self.device = device
@@ -157,18 +161,15 @@ class DARQNModel(nn.Module):
 
         self.dec_h_t = None
         self.dec_c_t = None
-        self.enc_h_t = None
-        self.enc_c_t = None
+        self.init_hidden()
 
     def forward(self, input_frames):
         """
-
-        :param input_frames:
-        :return:
+        propagates consecutive input frames through cnn, attention layer, decoder and q-net
+        :param input_frames: consecutive input frames from environment
+        :return: q-values
         """
         for input_frame in input_frames:
-            if self.dec_h_t is None:
-                self.init_hidden()
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
             input_vector = self.build_vector(feature_maps)
             input_vector.unsqueeze_(dim=1)
@@ -179,21 +180,19 @@ class DARQNModel(nn.Module):
 
     def init_hidden(self, batch_size=1):
         """
-
-        :param batch_size:
+        initializes hidden and cell state of lstm with zeros
+        :param batch_size: size of mini batch
         :return:
         """
-        self.enc_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
-        self.enc_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
         self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
         self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
 
     @staticmethod
     def build_vector(feature_maps):
         """
-
-        :param feature_maps:
-        :return:
+        builds input vector for lstm from cnn feature maps
+        :param feature_maps: cnn output
+        :return: input vector for lstm
         """
         batch, _, height, width = feature_maps.shape
         vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
@@ -202,14 +201,14 @@ class DARQNModel(nn.Module):
 
 class CEADModel(nn.Module):
     """
-
+    cead model, extends darqn model with additional lstm encoder
     """
     def __init__(self, nr_actions, device, num_layers):
         """
 
-        :param nr_actions:
-        :param device:
-        :param num_layers:
+        :param nr_actions: number of actions
+        :param device: cpu / gpu
+        :param num_layers: number of LSTM cells
         """
         super(CEADModel, self).__init__()
         self.device = device
@@ -224,16 +223,15 @@ class CEADModel(nn.Module):
         self.dec_c_t = None
         self.enc_h_t = None
         self.enc_c_t = None
+        self.init_hidden()
 
     def forward(self, input_frames):
         """
-
-        :param input_frames:
-        :return:
+        propagates consecutive input frames through cnn, encoder, attention layer, decoder and q-net
+        :param input_frames: consecutive input frames from environment
+        :return: q-values
         """
         for input_frame in input_frames:
-            if self.dec_h_t is None:
-                self.init_hidden()
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
             input_vector = self.build_vector(feature_maps)
             input_vector.unsqueeze_(dim=1)
@@ -245,8 +243,8 @@ class CEADModel(nn.Module):
 
     def init_hidden(self, batch_size=1):
         """
-
-        :param batch_size:
+        initializes hidden and cell state of lstm with zeros
+        :param batch_size: size of mini batch
         :return:
         """
         self.enc_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
@@ -257,15 +255,16 @@ class CEADModel(nn.Module):
     @staticmethod
     def build_vector(feature_maps):
         """
-
-        :param feature_maps:
-        :return:
+        builds input vector for lstm from cnn feature maps
+        :param feature_maps: cnn output
+        :return: input vector for lstm
         """
         batch, _, height, width = feature_maps.shape
         vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
         return vectors
 
 
+"""
 class DARQNAgent:
     def __init__(self, nr_actions, device, num_layers):
         self.nr_actions = nr_actions
@@ -440,3 +439,4 @@ class CEADNAgent:
 
     def update_target(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
+"""

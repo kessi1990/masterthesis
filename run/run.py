@@ -43,30 +43,36 @@ def evaluate_model(model):
     next_state_seq = deque(maxlen=4)
 
     while steps < evaluation_steps:
+
+        # reset env and clear deques
         if done:
             if not init:
                 returns_.append(return_)
             init = False
             state_seq = deque(maxlen=4)
             env.reset()
-            state, reward, done, info = env.step(1)  # press fire to start breakout
+            # press fire (1) and continue
+            state, reward, done, info = env.step(1)
             lives = info['ale.lives']
             state_seq.append(t.transform(state))
             next_state_seq = copy.deepcopy(state_seq)
             return_ = 0
             model.policy_net.init_hidden()
             model.target_net.init_hidden()
+
+        # predict, no need for gradients
         with torch.no_grad():
             action = model.policy(state_seq, mode='evaluation')
-        next_state, reward, done, info = env.step(action)
 
+        next_state, reward, done, info = env.step(action)
         return_ += reward
         steps += 1
         next_state_seq.append(t.transform(next_state))
         state_seq = copy.deepcopy(next_state_seq)
 
+        # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)  # press fire to start breakout
+            state, reward, done, info = env.step(1)
             lives = info['ale.lives']
             return_ += reward
             state_seq.append(t.transform(state))
@@ -109,6 +115,8 @@ if __name__ == '__main__':
 
     for step in range(1, training_steps + 1):
         epsilons.append(agent.epsilon)
+
+        # reset env and clear deques
         if done:
             agent.policy_net.init_hidden()
             agent.target_net.init_hidden()
@@ -116,32 +124,42 @@ if __name__ == '__main__':
                 training_returns.append(return_)
             init = False
             env.reset()
-            state, reward, done, info = env.step(1)  # press fire to start breakout
+            # press fire (1) and continue
+            state, reward, done, info = env.step(1)
             lives = info['ale.lives']
             state_seq.clear()
             state_seq.append(t.transform(state))
             next_state_seq = copy.deepcopy(state_seq)
             return_ = 0
+
+        # predict, no need for gradients
         with torch.no_grad():
             action = agent.policy(state_seq, mode='training')
+
         next_state, reward, done, info = env.step(action)
         return_ += reward
         next_state_seq.append(t.transform(next_state))
         agent.append_sample(copy.deepcopy(state_seq), action, reward, copy.deepcopy(next_state_seq), done)
         state_seq = copy.deepcopy(next_state_seq)
         agent.minimize_epsilon()
+
+        # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)  # press fire to start breakout
+            state, reward, done, info = env.step(1)
             lives = info['ale.lives']
             return_ += reward
             state_seq.append(t.transform(state))
             next_state_seq = copy.deepcopy(state_seq)
             agent.policy_net.init_hidden()
             agent.target_net.init_hidden()
+
+        # train every 4th step
         if step % 4 == 0:
             loss = agent.train()
             losses.append(loss.item())
             train_counter += 1
+
+        # enter evaluation phase
         if step % evaluation_start == 0 or step == training_steps:
             train_end = datetime.datetime.now()
             print(f'training done! time: {train_end - train_start}')
@@ -171,6 +189,7 @@ if __name__ == '__main__':
             done = True
             gc.collect()
             train_start = datetime.datetime.now()
+
     end = datetime.datetime.now()
     print(f'overall time: {end - start}')
     results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
