@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 
 from models import models_old
 from utils import transformation
-from utils import viz
+from utils import viz_old
 from utils import captain
 
 from datetime import datetime

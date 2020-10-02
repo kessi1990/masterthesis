@@ -27,9 +27,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 1000000  # 5000000
-evaluation_start = 10000  # 50000
-evaluation_steps = 5000   # 25000
+training_steps = 2000000  # 1000000  # 5000000
+evaluation_start = 10000  # 10000  # 50000
+evaluation_steps = 10000  # 5000   # 25000
 
 
 def evaluate_model(model):
@@ -70,6 +70,10 @@ def evaluate_model(model):
         next_state_seq.append(t.transform(next_state))
         state_seq = copy.deepcopy(next_state_seq)
 
+        # set show True to plot attention
+        if steps == 50:
+            model.policy_net.show = True
+
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
@@ -85,6 +89,7 @@ def evaluate_model(model):
 
 if __name__ == '__main__':
     agent = a.DQN(model_type, env.action_space.n, device, num_layers)
+    agent.policy_net.directory = directory
 
     evaluation_returns = []
     training_returns = []
@@ -162,25 +167,26 @@ if __name__ == '__main__':
         # enter evaluation phase
         if step % evaluation_start == 0 or step == training_steps:
             train_end = datetime.datetime.now()
-            print(f'training done! time: {train_end - train_start}')
+            print(f'... done! time: {train_end - train_start}')
             print(f'training: {train_counter} / {int(training_steps / 4)}, steps: {step} / {training_steps}')
             print('-----------------------------------------------------')
             print('evaluating model ...')
             start_time = datetime.datetime.now()
             avg_return = evaluate_model(agent)
             end_time = datetime.datetime.now()
-            print(f'evaluation done! time: {end_time - start_time}')
+            print(f'... done! time: {end_time - start_time}')
             print('-----------------------------------------------------')
             print(f'saving model ...')
             fileio.save_model(agent.policy_net, agent.target_net, agent.optimizer, directory)
-            print(f'model saved!')
+            print(f'... done!')
             print('-----------------------------------------------------')
             evaluation_returns.append(avg_return)
             print(f'plotting intermediate results ...')
             plotter.plot_intermediate_results(directory, **results)
-            print(f'plotting done!')
+            print(f'... done!')
             print('-----------------------------------------------------')
             print(f'saving intermediate results ...')
+            print(f'... done!')
             results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
                        'epsilons': epsilons}
             fileio.save_results(results, directory)
@@ -203,5 +209,5 @@ if __name__ == '__main__':
     print('-----------------------------------------------------')
     print(f'plotting final results ...')
     plotter.plot_intermediate_results(directory, **results)
-    print(f'plotting done!')
+    print(f'... done!')
     print('=====================================================')

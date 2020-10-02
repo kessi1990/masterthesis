@@ -23,7 +23,7 @@ def make_dir(config):
 
 
 def mkdir(model, env, num_layers):
-    timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d_%H-%M-%S')
+    """timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d_%H-%M-%S')
     path = f'../output_new/{timestamp}_{model}_{env}_{num_layers}--'
     i = 0
     while True:
@@ -32,8 +32,11 @@ def mkdir(model, env, num_layers):
             continue
         else:
             os.mkdir(path + str(i), 0o755)
-            break
-    return path + str(i) + '/'
+            break"""
+    path = f'../output_2/{model}_{env}_{num_layers}'
+    if not os.path.exists(path):
+        os.mkdir(path, 0o755)
+    return path + '/'
 
 
 def visual_dir(root):
@@ -69,6 +72,11 @@ def save_model(model_p, model_t, optimizer, path):
     torch.save(model_p.state_dict(), path + 'model_policy.pt')
     torch.save(model_t.state_dict(), path + 'model_target.pt')
     torch.save(optimizer.state_dict(), path + 'optimizer.pt')
+
+
+def save_parameters(directory, data):
+    with open(directory + 'parameters.json', 'w') as file:
+        json.dump(data, file)
 
 
 def save_results(data, directory):

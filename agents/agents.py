@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as functional
 import numpy as np
 import random
 
@@ -8,6 +9,8 @@ from collections import deque
 from abc import ABC, abstractmethod
 
 from models import models
+
+from datetime import datetime
 
 
 class Agent(ABC):
@@ -57,8 +60,8 @@ class DQN(Agent):
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
         self.learning_rate = 0.01
         self.epsilon = 1
-        self.epsilon_decay = 0.000005
-        self.epsilon_min = 0.05
+        self.epsilon_decay = 9e-07
+        self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
         self.memory = deque(maxlen=500000)
@@ -76,7 +79,7 @@ class DQN(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        self.criterion = nn.MSELoss().to(self.device)
+        # self.criterion = functional.smooth_l1_loss()
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
@@ -131,8 +134,7 @@ class DQN(Agent):
         if len(self.memory) < self.batch_size:
             return torch.zeros(1)
 
-        # zero gradients and set policy_net to train mode
-        self.optimizer.zero_grad()
+        # set policy_net to train mode
         self.policy_net.train()
 
         # sample and slice mini_batch
@@ -157,11 +159,14 @@ class DQN(Agent):
                 q_new = self.target_net.forward(next_state_sequences[i])
                 target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
             target = torch.tensor(target, requires_grad=True, device=self.device)
-            loss += self.criterion(prediction, target)
+            loss += functional.smooth_l1_loss(prediction, target)
         self.k_count += 1
 
-        # propagate loss backwards
+        # zero gradients
+        self.optimizer.zero_grad()
         loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(min=-1, max=1)
         self.optimizer.step()
 
         if self.k_count >= self.k_target:

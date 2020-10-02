@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 
+from utils import visualization as v
+
 ################################################################################
 #                                  Model parts                                 #
 ################################################################################
@@ -52,18 +54,18 @@ class Attention(nn.Module):
         aligns input_vectors and last hidden state, outputs linear combination (context vector)
         :param input_vectors: transformed feature maps
         :param last_hidden_state: last hidden state of decoder
-        :return: context vector
+        :return: context vector, weights
         """
         context = []
+        weights = []
         for vector in input_vectors:
-            attention_weighted_vector = self.fc_1(vector) + last_hidden_state
-            attention_weighted_vector = torch.tanh(attention_weighted_vector)
-            attention_weighted_vector = self.fc_2(attention_weighted_vector)
-            attention_weighted_vector = functional.softmax(attention_weighted_vector, dim=-1)  # / normalizing_const
-            c = attention_weighted_vector * vector
+            attention_weights = functional.softmax(self.fc_2(torch.tanh(self.fc_1(vector) + last_hidden_state)), dim=-1)
+            c = attention_weights * vector
             context.append(c.squeeze())
+            weights.append(attention_weights.squeeze())
         context = torch.sum(torch.stack(context, dim=0), dim=0).unsqueeze(dim=0).unsqueeze(dim=0)
-        return context
+        weights = torch.stack(weights, dim=0)
+        return context, weights
 
 
 class Encoder(nn.Module):
@@ -153,6 +155,7 @@ class DARQNModel(nn.Module):
         """
         super(DARQNModel, self).__init__()
         self.device = device
+        self.directory = None
         self.num_layers = num_layers
         self.cnn = CNN(device)
         self.attention = Attention()
@@ -163,19 +166,25 @@ class DARQNModel(nn.Module):
         self.dec_c_t = None
         self.init_hidden()
 
+        self.show = True
+
     def forward(self, input_frames):
         """
         propagates consecutive input frames through cnn, attention layer, decoder and q-net
         :param input_frames: consecutive input frames from environment
         :return: q-values
         """
-        for input_frame in input_frames:
+        q_values = None
+        for i, input_frame in enumerate(input_frames):
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
             input_vector = self.build_vector(feature_maps)
             input_vector.unsqueeze_(dim=1)
-            context = self.attention.forward(input_vector, self.dec_h_t[-1])
+            context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])
             decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
             q_values = self.q_net(decoder_out)
+            if self.show and self.directory is not None:
+                v.visualize_attention(weights, input_frame, self.directory, i)
+        self.show = False
         return q_values
 
     def init_hidden(self, batch_size=1):
@@ -212,6 +221,7 @@ class CEADModel(nn.Module):
         """
         super(CEADModel, self).__init__()
         self.device = device
+        self.directory = None
         self.num_layers = num_layers
         self.cnn = CNN(device)
         self.encoder = Encoder(num_layers)
@@ -225,20 +235,26 @@ class CEADModel(nn.Module):
         self.enc_c_t = None
         self.init_hidden()
 
+        self.show = True
+
     def forward(self, input_frames):
         """
         propagates consecutive input frames through cnn, encoder, attention layer, decoder and q-net
         :param input_frames: consecutive input frames from environment
         :return: q-values
         """
-        for input_frame in input_frames:
+        q_values = None
+        for i, input_frame in enumerate(input_frames):
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
             input_vector = self.build_vector(feature_maps)
             input_vector.unsqueeze_(dim=1)
             encoder_out, (self.enc_h_t, self.enc_c_t) = self.encoder.forward(input_vector, self.enc_h_t, self.enc_c_t)
-            context = self.attention.forward(encoder_out, self.dec_h_t[-1])
+            context, weights = self.attention.forward(encoder_out, self.dec_h_t[-1])
             decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
             q_values = self.q_net(decoder_out)
+            if self.show and self.directory is not None:
+                v.visualize_attention(weights, input_frame, self.directory, i)
+        self.show = False
         return q_values
 
     def init_hidden(self, batch_size=1):
@@ -262,181 +278,3 @@ class CEADModel(nn.Module):
         batch, _, height, width = feature_maps.shape
         vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
         return vectors
-
-
-"""
-class DARQNAgent:
-    def __init__(self, nr_actions, device, num_layers):
-        self.nr_actions = nr_actions
-        self.action_space = [_ for _ in range(self.nr_actions)]
-        print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.01
-        self.epsilon = 1
-        self.epsilon_decay = 0.000005
-        self.epsilon_min = 0.05
-        self.discount_factor = 0.99
-        self.batch_size = 32
-        self.memory = deque(maxlen=500000)
-        self.k_count = 0
-        self.k_target = 10000
-
-        self.device = device
-
-        self.policy_net = DARQNModel(self.nr_actions, self.device, num_layers).to(self.device)
-        self.target_net = DARQNModel(self.nr_actions, self.device, num_layers).to(self.device)
-
-        self.target_net.eval()
-
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
-        self.criterion = nn.MSELoss().to(self.device)
-
-    def append_sample(self, state_seq, action, reward, next_state_seq, done):
-        self.memory.append((state_seq, action, reward, next_state_seq, done))
-
-    def training_policy(self, state_sequence):
-        if np.random.rand() <= self.epsilon:
-            return np.random.choice(self.action_space)
-        else:
-            q_values = self.policy_net.forward(state_sequence)
-            action = torch.argmax(q_values[0]).item()
-            return action
-
-    def evaluation_policy(self, state_sequence):
-        if np.random.rand() <= 0.05:
-            return np.random.choice(self.action_space)
-        else:
-            q_values = self.policy_net.forward(state_sequence)
-            action = torch.argmax(q_values[0]).item()
-            return action
-
-    def minimize_epsilon(self):
-        if self.epsilon > self.epsilon_min:
-            self.epsilon -= self.epsilon_decay
-
-    def train(self):
-        if len(self.memory) < self.batch_size:
-            return torch.zeros(1)
-        self.optimizer.zero_grad()
-        self.policy_net.train()
-        self.policy_net.init_hidden()
-        self.target_net.init_hidden()
-        mini_batch = random.sample(self.memory, self.batch_size)
-        mini_batch = np.array(mini_batch)
-        state_sequences = mini_batch[:, 0]
-        actions = mini_batch[:, 1]
-        rewards = mini_batch[:, 2]
-        next_state_sequences = mini_batch[:, 3]
-        dones = mini_batch[:, 4]
-        loss = 0
-        for i in range(self.batch_size):
-            q_old = self.policy_net.forward(state_sequences[i])
-            prediction = q_old[0][actions[i]]
-            if dones[i]:
-                target = rewards[i]
-            else:
-                q_new = self.target_net.forward(next_state_sequences[i])
-                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
-            target = torch.tensor(target, requires_grad=True, device=self.device)
-            loss += self.criterion(prediction, target)
-        self.k_count += 1
-        loss.backward()
-        self.optimizer.step()
-
-        if self.k_count >= self.k_target:
-            print(f'updating target network')
-            self.update_target()
-            self.k_count = 0
-        self.policy_net.eval()
-        return loss
-
-    def update_target(self):
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-
-
-class CEADNAgent:
-    def __init__(self, nr_actions, device, num_layers):
-        self.nr_actions = nr_actions
-        self.action_space = [_ for _ in range(self.nr_actions)]
-        print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.01
-        self.epsilon = 1
-        self.epsilon_decay = 0.000005
-        self.epsilon_min = 0.05
-        self.discount_factor = 0.99
-        self.batch_size = 32
-        self.memory = deque(maxlen=500000)
-        self.k_count = 0
-        self.k_target = 10000
-
-        self.device = device
-
-        self.policy_net = CEADModel(self.nr_actions, self.device, num_layers).to(self.device)
-        self.target_net = CEADModel(self.nr_actions, self.device, num_layers).to(self.device)
-
-        self.target_net.eval()
-
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
-        self.criterion = nn.MSELoss().to(self.device)
-
-    def append_sample(self, state_seq, action, reward, next_state_seq, done):
-        self.memory.append((state_seq, action, reward, next_state_seq, done))
-
-    def training_policy(self, state_sequence):
-        if np.random.rand() <= self.epsilon:
-            return np.random.choice(self.action_space)
-        else:
-            q_values = self.policy_net.forward(state_sequence)
-            action = torch.argmax(q_values[0]).item()
-            return action
-
-    def evaluation_policy(self, state_sequence):
-        if np.random.rand() <= 0.05:
-            return np.random.choice(self.action_space)
-        else:
-            q_values = self.policy_net.forward(state_sequence)
-            action = torch.argmax(q_values[0]).item()
-            return action
-
-    def minimize_epsilon(self):
-        if self.epsilon > self.epsilon_min:
-            self.epsilon -= self.epsilon_decay
-
-    def train(self):
-        if len(self.memory) < self.batch_size:
-            return torch.zeros(1)
-        self.optimizer.zero_grad()
-        self.policy_net.train()
-        self.policy_net.init_hidden()
-        self.target_net.init_hidden()
-        mini_batch = random.sample(self.memory, self.batch_size)
-        mini_batch = np.array(mini_batch)
-        state_sequences = mini_batch[:, 0]
-        actions = mini_batch[:, 1]
-        rewards = mini_batch[:, 2]
-        next_state_sequences = mini_batch[:, 3]
-        dones = mini_batch[:, 4]
-        loss = 0
-        for i in range(self.batch_size):
-            q_old = self.policy_net.forward(state_sequences[i])
-            prediction = q_old[0][actions[i]]
-            if dones[i]:
-                target = rewards[i]
-            else:
-                q_new = self.target_net.forward(next_state_sequences[i])
-                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
-            target = torch.tensor(target, requires_grad=True, device=self.device)
-            loss += self.criterion(prediction, target)
-        self.k_count += 1
-        loss.backward()
-        self.optimizer.step()
-
-        if self.k_count >= self.k_target:
-            print(f'updating target network')
-            self.update_target()
-            self.k_count = 0
-        self.policy_net.eval()
-        return loss
-
-    def update_target(self):
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-"""
