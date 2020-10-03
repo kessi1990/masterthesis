@@ -83,8 +83,8 @@ if __name__ == '__main__':
                                          'acc_return': acc_return}}
                 fileio.save_results(result, directory)
                 if episode % 10 == 0:
-                    fileio.save_model(ead_agent.policy_net, ead_agent.target_net, ead_agent.optimizer, directory)
+                    fileio.save_checkpoint(ead_agent.policy_net, ead_agent.target_net, ead_agent.optimizer, directory)
                 gc.collect()
                 break
 
-    fileio.save_model(ead_agent.policy_net, ead_agent.target_net, ead_agent.optimizer, directory)
+    fileio.save_checkpoint(ead_agent.policy_net, ead_agent.target_net, ead_agent.optimizer, directory)

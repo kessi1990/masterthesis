@@ -30,8 +30,8 @@ class CNN(nn.Module):
         :param state: obtained from environment
         :return: feature maps
         """
-        out = state.to(device=self.device)
-        out = functional.relu(self.conv_1(out))
+        state = state.to(device=self.device)
+        out = functional.relu(self.conv_1(state))
         out = functional.relu(self.conv_2(out))
         out = functional.relu(self.conv_3(out))
         return out

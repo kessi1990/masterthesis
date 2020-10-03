@@ -8,6 +8,7 @@ import random
 from collections import deque
 from abc import ABC, abstractmethod
 
+from agents import memory
 from models import models
 
 from datetime import datetime
@@ -64,7 +65,7 @@ class DQN(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = deque(maxlen=500000)
+        self.memory = memory.ReplayMemory(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
 
@@ -138,7 +139,7 @@ class DQN(Agent):
         self.policy_net.train()
 
         # sample and slice mini_batch
-        mini_batch = random.sample(self.memory, self.batch_size)
+        mini_batch = self.memory.sample(self.batch_size)  # random.sample(self.memory, self.batch_size)
         mini_batch = np.array(mini_batch)
         state_sequences = mini_batch[:, 0]
         actions = mini_batch[:, 1]
@@ -156,9 +157,9 @@ class DQN(Agent):
             if dones[i]:
                 target = rewards[i]
             else:
-                q_new = self.target_net.forward(next_state_sequences[i])
+                q_new = self.target_net.forward(next_state_sequences[i]).detach()
                 target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
-            target = torch.tensor(target, requires_grad=True, device=self.device)
+            target = torch.tensor(target, requires_grad=False, device=self.device)
             loss += functional.smooth_l1_loss(prediction, target)
         self.k_count += 1
 

@@ -23,17 +23,7 @@ def make_dir(config):
 
 
 def mkdir(model, env, num_layers):
-    """timestamp = datetime.strftime(datetime.now(), '%Y-%m-%d_%H-%M-%S')
-    path = f'../output_new/{timestamp}_{model}_{env}_{num_layers}--'
-    i = 0
-    while True:
-        if os.path.exists(path + str(i)):
-            i += 1
-            continue
-        else:
-            os.mkdir(path + str(i), 0o755)
-            break"""
-    path = f'../output_2/{model}_{env}_{num_layers}'
+    path = f'../output_new/{model}_{env}_{num_layers}'
     if not os.path.exists(path):
         os.mkdir(path, 0o755)
     return path + '/'
@@ -68,15 +58,33 @@ def write_info(config, directory):
                 file.write(f'{k}: {v}\n')
 
 
-def save_model(model_p, model_t, optimizer, path):
-    torch.save(model_p.state_dict(), path + 'model_policy.pt')
-    torch.save(model_t.state_dict(), path + 'model_target.pt')
-    torch.save(optimizer.state_dict(), path + 'optimizer.pt')
+def save_checkpoint(agent, train_counter, steps, directory):
+    data = {
+        'policy_net': agent.policy_net.state_dict(),
+        'target_net': agent.target_net.state_dict(),
+        'optimizer': agent.optimizer.state_dict(),
+        'epsilon': agent.epsilon,
+        'epsilon_decay': agent.epsilon_decay,
+        'epsilon_min': agent.epsilon_min,
+        'discount_factor': agent.discount_factor,
+        'batch_size': agent.batch_size,
+        'memory_size': agent.memory.maxlen,
+        'k_count': agent.k_count,
+        'k_target': agent.k_target,
+        'train_counter': train_counter,
+        'continue': steps
+    }
+    path = directory + 'checkpoint.pt'
+    torch.save(data, path)
 
 
-def save_parameters(directory, data):
-    with open(directory + 'parameters.json', 'w') as file:
-        json.dump(data, file)
+def load_checkpoint(directory):
+    path = directory + 'checkpoint.pt'
+    if os.path.exists(path):
+        checkpoint = torch.load(path)
+        return checkpoint
+    else:
+        return None
 
 
 def save_results(data, directory):
@@ -90,9 +98,12 @@ def save_results(data, directory):
 
 
 def load_results(directory):
-    with open(directory + 'results.json', 'r') as file:
-        results = json.load(file)
-        return results
+    if os.path.exists(directory + 'results.json'):
+        with open(directory + 'results.json', 'r') as file:
+            results = json.load(file)
+            return results
+    else:
+        return {}
 
 
 def save_image(tensor, path):
