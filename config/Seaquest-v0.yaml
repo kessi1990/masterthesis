@@ -1,7 +1,5 @@
-top: 17
+top: 10
 left: 0
-image_height: 210
-image_width: 160
 crop_height: 84
 crop_width: 84
 out_channels: 1

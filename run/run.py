@@ -21,7 +21,7 @@ model_type = sys.argv[1]
 env_type = sys.argv[2]
 num_layers = int(sys.argv[3])
 
-config = c.load_config_file(f'../config/default_new.yaml')
+config = c.load_config_file(f'../config/{env_type}.yaml')
 directory = fileio.mkdir(model_type, env_type, num_layers)
 checkpoint = fileio.load_checkpoint(directory)
 env = gym.make(env_type)
@@ -29,9 +29,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 1500 # 2000000  # 1000000  # 5000000
-evaluation_start = 300 # 10000  # 10000  # 50000
-evaluation_steps = 750  # 10000  # 5000   # 25000
+training_steps = 2000000  # 1000000  # 5000000
+evaluation_start = 10000  # 10000  # 50000
+evaluation_steps = 10000  # 5000   # 25000
 
 
 def evaluate_model(model):

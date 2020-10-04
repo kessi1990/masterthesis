@@ -50,8 +50,6 @@ class Transformation:
         """
         self.top = config['top']
         self.left = config['left']
-        self.image_height = config['image_height']
-        self.image_width = config['image_width']
         self.crop_height = config['crop_height']
         self.crop_width = config['crop_width']
         self.out_channels = config['out_channels']
