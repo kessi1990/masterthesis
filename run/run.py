@@ -29,9 +29,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 10000  # 10000  # 50000
-evaluation_steps = 10000  # 5000   # 25000
+training_steps = 1500 # 2000000  # 1000000  # 5000000
+evaluation_start = 300 # 10000  # 10000  # 50000
+evaluation_steps = 750  # 10000  # 5000   # 25000
 
 
 def evaluate_model(model):
@@ -155,6 +155,7 @@ if __name__ == '__main__':
     init = True
     lives = 0
     state_seq = deque(maxlen=4)
+    next_state_seq = deque(maxlen=4)
 
     print('=====================================================')
     print(f'model: {model_type}')
@@ -268,15 +269,15 @@ if __name__ == '__main__':
             print(f'... done!')
             print('-----------------------------------------------------')
             evaluation_returns.append(avg_return)
+            results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
+                       'epsilons': epsilons}
+            print(f'saving intermediate results ...')
+            fileio.save_results(results, directory)
+            print(f'... done!')
+            print('-----------------------------------------------------')
             print(f'plotting intermediate results ...')
             plotter.plot_intermediate_results(directory, **results)
             print(f'... done!')
-            print('-----------------------------------------------------')
-            print(f'saving intermediate results ...')
-            print(f'... done!')
-            results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
-                       'epsilons': epsilons}
-            fileio.save_results(results, directory)
             print('=====================================================')
             print('continue training ...')
             done = True

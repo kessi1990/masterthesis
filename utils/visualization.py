@@ -16,9 +16,9 @@ def visualize_attention(attention_weights, input_frame, directory, i):
     attention_weights = torch.transpose(attention_weights[0], dim0=1, dim1=0)
     attention_weights = attention_weights.reshape(1, 7, 7)
     attention_weights = attention_weights.unsqueeze(dim=0)
-    attention_weights = upsample(attention_weights).detach()
+    attention_weights = upsample(attention_weights).detach().cpu()
 
-    input_frame = input_frame.detach()
+    input_frame = input_frame.detach().cpu()
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
     plt.imshow(input_frame.squeeze(), 'gray', interpolation='none')
