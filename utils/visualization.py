@@ -4,6 +4,22 @@ import time
 from matplotlib import pyplot as plt
 
 
+def vis_v2(attention_weights, j, directory):
+    attention_weights = torch.transpose(attention_weights.detach(), dim0=1, dim1=0).reshape(256, 7, 7)
+    attention_weights = attention_weights.unsqueeze(dim=1)
+
+    fig, axes = plt.subplots(16, 16, figsize=(15, 12))
+    i = 0
+    for y in range(16):
+        for x in range(16):
+            axes[y, x].imshow(attention_weights[i].squeeze(), cmap=plt.get_cmap('plasma'))
+            axes[y, x].set_axis_off()
+            i += 1
+    plt.tight_layout()
+    plt.savefig(f'{directory}_attention_{j}')
+    plt.close('all')
+
+
 def visualize_attention(attention_weights, input_frame, directory, i):
     upsample = torch.nn.Upsample(scale_factor=12, mode='bicubic', align_corners=False)
     # attention_weights (49, 256)

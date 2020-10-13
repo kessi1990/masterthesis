@@ -14,12 +14,14 @@ from agents import agents as a
 from utils import config as c
 from utils import fileio
 from utils import transformation
-from utils import plotter
+from utils import plots
 
 
 model_type = sys.argv[1]
 env_type = sys.argv[2]
 num_layers = int(sys.argv[3])
+batch = sys.argv[4] == 'True'
+print(f'batch_training {batch}')
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
 directory = fileio.mkdir(model_type, env_type, num_layers)
@@ -29,13 +31,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 10000  # 10000  # 50000
-evaluation_steps = 10000  # 5000   # 25000
+training_steps = 10000  # 2000000  # 1000000  # 5000000
+evaluation_start = 250 # 10000  # 10000  # 50000
+evaluation_steps = 5000 # 10000  # 5000   # 25000
 
 
 def evaluate_model(model):
     model.policy_net.eval()
+    model.policy_net.init_hidden()
+    model.target_net.init_hidden()
 
     returns_ = []
     return_ = 0
@@ -47,7 +51,6 @@ def evaluate_model(model):
     next_state_seq = deque(maxlen=4)
 
     while steps < evaluation_steps:
-
         # reset env and clear deques
         if done:
             if not init:
@@ -76,8 +79,8 @@ def evaluate_model(model):
         state_seq = copy.deepcopy(next_state_seq)
 
         # set show True to plot attention
-        if steps == 50:
-            model.policy_net.show = True
+        """if steps == 50:
+            model.policy_net.show = True"""
 
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
@@ -248,8 +251,12 @@ if __name__ == '__main__':
 
         # train every 4th step
         if step % 4 == 0:
-            loss = agent.train()
-            losses.append(loss.item())
+            start = datetime.datetime.now()
+            loss = agent.train_batch() if batch else agent.train()
+            end = datetime.datetime.now()
+            print(f'time for batch: {end - start}')
+            print(f'--------------------------------')
+            losses.append(loss)
             train_counter += 1
 
         # enter evaluation phase
@@ -276,7 +283,7 @@ if __name__ == '__main__':
             print(f'... done!')
             print('-----------------------------------------------------')
             print(f'plotting intermediate results ...')
-            plotter.plot_intermediate_results(directory, **results)
+            plots.plot_intermediate_results(directory, **results)
             print(f'... done!')
             print('=====================================================')
             print('continue training ...')
@@ -295,6 +302,6 @@ if __name__ == '__main__':
     print(f'... done!')
     print('---------------------------------------------------------------------')
     print(f'plotting final results ...')
-    plotter.plot_intermediate_results(directory, **results)
+    plots.plot_intermediate_results(directory, **results)
     print(f'... done!')
     print('=====================================================================')

@@ -80,8 +80,9 @@ def save_checkpoint(agent, train_counter, steps, directory):
 
 def load_checkpoint(directory):
     path = directory + 'checkpoint.pt'
+    print(f'path: {path}')
     if os.path.exists(path):
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
         return checkpoint
     else:
         return None
