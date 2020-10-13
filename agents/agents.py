@@ -211,7 +211,7 @@ class DQN(Agent):
         mini_batch = np.array(self.memory.sample(self.batch_size))
         state_sequences = mini_batch[:, 0]
         actions = mini_batch[:, 1]
-        reward = torch.tensor(list(mini_batch[:, 2])).unsqueeze(dim=1)
+        reward = torch.tensor(list(mini_batch[:, 2]), device=self.device).unsqueeze(dim=1)
         next_state_sequences = mini_batch[:, 3]
         dones = mini_batch[:, 4]
 
