@@ -31,9 +31,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 10000  # 2000000  # 1000000  # 5000000
+training_steps = 2500  # 2000000  # 1000000  # 5000000
 evaluation_start = 250 # 10000  # 10000  # 50000
-evaluation_steps = 5000 # 10000  # 5000   # 25000
+evaluation_steps = 1500 # 10000  # 5000   # 25000
 
 
 def evaluate_model(model):
