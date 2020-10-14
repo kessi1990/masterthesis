@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 
-from utils import visualization as v
 
 ################################################################################
 #                                  Model parts                                 #
@@ -180,18 +179,19 @@ class DARQNModel(nn.Module):
             if input_frame.dim() == 3:
                 input_frame.unsqueeze_(dim=0)
             feature_maps = self.cnn.forward(input_frame)
-            input_vector = self.build_vector_v2(feature_maps)
+            input_vector = self.build_vector(feature_maps)
             context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])
             decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
             q_values = self.q_net.forward(decoder_out)
         return q_values
 
+    """
     def forward_old(self, input_frames):
-        """
+        \"""
         propagates consecutive input frames through cnn, attention layer, decoder and q-net
         :param input_frames: consecutive input frames from environment
         :return: q-values
-        """
+        \"""
         q_values = None
         for i, input_frame in enumerate(input_frames):
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
@@ -205,6 +205,7 @@ class DARQNModel(nn.Module):
                 v.vis_v2(weights, i, self.directory)
         self.show = False
         return q_values
+    """
 
     def init_hidden(self, batch_size=1):
         """
@@ -215,19 +216,21 @@ class DARQNModel(nn.Module):
         self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
         self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
 
+    """
     @staticmethod
-    def build_vector(feature_maps):
-        """
+    def build_vector_old(feature_maps):
+        \"""
         builds input vector for lstm from cnn feature maps
         :param feature_maps: cnn output
         :return: input vector for lstm
-        """
+        \"""
         batch, _, height, width = feature_maps.shape
         vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
         return vectors
+    """
 
     @staticmethod
-    def build_vector_v2(feature_maps):
+    def build_vector(feature_maps):
         """
         builds input vector for lstm from cnn feature maps
         :param feature_maps: cnn output
@@ -277,18 +280,21 @@ class CEADModel(nn.Module):
         q_values = None
         for input_frame in input_frames:
             if input_frame.dim() == 3:
+                print(f'DIMENSION == 3 !!!!!!!!!!!!!')
                 input_frame.unsqueeze_(dim=0)
             feature_maps = self.cnn.forward(input_frame)
-            input_vector = self.build_vector_v2(feature_maps)
+            input_vector = self.build_vector(feature_maps)
             encoder_out, (self.enc_h_t, self.enc_c_t) = self.encoder.forward(input_vector, self.enc_h_t, self.enc_c_t)
             context, weights = self.attention.forward(encoder_out, self.dec_h_t[-1])
             decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)
             q_values = self.q_net.forward(decoder_out)
         return q_values
 
+    """
     def forward_old(self, input_frames):
         q_values = None
         for i, input_frame in enumerate(input_frames):
+            print(f'CEAD MODEL: input_frame {input_frame.shape}')
             feature_maps = self.cnn.forward(input_frame.unsqueeze(dim=0))
             input_vector = self.build_vector(feature_maps)
             input_vector.unsqueeze_(dim=1)
@@ -300,6 +306,7 @@ class CEADModel(nn.Module):
                 v.vis_v2(weights, i, self.directory)
             self.show = False
         return q_values
+    """
 
     def init_hidden(self, batch_size=1):
         """
@@ -312,19 +319,21 @@ class CEADModel(nn.Module):
         self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
         self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
 
+    """
     @staticmethod
-    def build_vector(feature_maps):
-        """
+    def build_vector_old(feature_maps):
+        \"""
         builds input vector for lstm from cnn feature maps
         :param feature_maps: cnn output
         :return: input vector for lstm
-        """
+        \"""
         batch, _, height, width = feature_maps.shape
         vectors = torch.stack([feature_maps[-1][:, y, x] for y in range(height) for x in range(width)], dim=0)
         return vectors
+    """
 
     @staticmethod
-    def build_vector_v2(feature_maps):
+    def build_vector(feature_maps):
         """
         builds input vector for lstm from cnn feature maps
         :param feature_maps: cnn output

@@ -72,4 +72,4 @@ class Transformation:
         :return: tensor for neural network input
         """
         image = Image.fromarray(image)
-        return self.transformation(image)
+        return self.transformation(image).unsqueeze(dim=0)

@@ -21,7 +21,6 @@ model_type = sys.argv[1]
 env_type = sys.argv[2]
 num_layers = int(sys.argv[3])
 batch = sys.argv[4] == 'True'
-print(f'batch_training {batch}')
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
 directory = fileio.mkdir(model_type, env_type, num_layers)
@@ -162,6 +161,9 @@ if __name__ == '__main__':
 
     print('=====================================================')
     print(f'model: {model_type}')
+    print(f'num_layers: {num_layers}')
+    print(f'env_type: {env_type}')
+    print(f'batch_training: {batch}')
     print('-----------------------------------------------------')
 
     if checkpoint:
@@ -252,7 +254,7 @@ if __name__ == '__main__':
         # train every 4th step
         if step % 4 == 0:
             start = datetime.datetime.now()
-            loss = agent.train_batch() if batch else agent.train()
+            loss = agent.train()  # agent.train_batch() if batch else agent.train()
             end = datetime.datetime.now()
             print(f'time for batch: {end - start}')
             print(f'--------------------------------')

@@ -133,12 +133,13 @@ class DQN(Agent):
         """
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
+    """
     def train(self):
-        """
+        \"""
         trains policy network by sampling a mini batch of already experienced transitions from memory buffer and
         constructing a loss which is propagated backwards through the network
         :return: accumulated loss
-        """
+        \"""
         if len(self.memory) < self.batch_size:
             return torch.zeros(1).item()
 
@@ -159,12 +160,12 @@ class DQN(Agent):
         for i in range(self.batch_size):
             self.policy_net.init_hidden()
             self.target_net.init_hidden()
-            q_old = self.policy_net.forward_old(state_sequences[i])
+            q_old = self.policy_net.forward(state_sequences[i])
             prediction = q_old[0][actions[i]]
             if dones[i]:
                 target = rewards[i]
             else:
-                q_new = self.target_net.forward_old(next_state_sequences[i]).detach()
+                q_new = self.target_net.forward(next_state_sequences[i]).detach()
                 target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
             target = torch.tensor(target, requires_grad=False, device=self.device)
             loss += functional.smooth_l1_loss(prediction, target)
@@ -198,8 +199,9 @@ class DQN(Agent):
         self.target_net.init_hidden()
         print(f'k_count: {self.k_count}')
         return loss.item()
+    """
 
-    def train_batch(self):
+    def train(self):
         if len(self.memory) < self.batch_size:
             return torch.zeros(1).item()
 
@@ -215,8 +217,8 @@ class DQN(Agent):
         next_state_sequences = mini_batch[:, 3]
         dones = mini_batch[:, 4]
 
-        state_batch = [torch.stack([seq[i] for seq in state_sequences], dim=0) for i in range(4)]
-        next_state_batch = [torch.stack([seq[i] for seq in next_state_sequences], dim=0) for i in range(4)]
+        state_batch = [torch.cat([seq[i] for seq in state_sequences], dim=0) for i in range(4)]
+        next_state_batch = [torch.cat([seq[i] for seq in next_state_sequences], dim=0) for i in range(4)]
 
         state_q = self.policy_net.forward(state_batch)
 
@@ -226,7 +228,7 @@ class DQN(Agent):
         target = torch.max(next_state_q, dim=-1, keepdim=True)[0]
         target = (target * self.discount_factor) + reward
         target = target.clone().detach().requires_grad_(False)
-        # TODO: terminal / non temrinal states
+        # TODO: terminal / non terminal states
 
         prediction = torch.stack([state_q[i][a] for i, a in enumerate(actions)]).unsqueeze(dim=1)
 
@@ -252,6 +254,9 @@ class DQN(Agent):
         self.k_count += 1
         self.policy_net.eval()
         print(f'k_count: {self.k_count}')
+
+        self.policy_net.init_hidden()
+        self.target_net.init_hidden()
         return loss.item()
 
 
