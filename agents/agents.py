@@ -232,28 +232,28 @@ class DQN(Agent):
 
         prediction = torch.stack([state_q[i][a] for i, a in enumerate(actions)]).unsqueeze(dim=1)
 
-        start = datetime.utcnow()
+        # start = datetime.utcnow()
         loss = functional.smooth_l1_loss(prediction, target)
-        end = datetime.utcnow()
-        print(f'loss {end - start}')
+        """end = datetime.utcnow()
+        print(f'loss {end - start}')"""
 
         self.optimizer.zero_grad()
 
-        start = datetime.utcnow()
+        # start = datetime.utcnow()
         loss.backward()
-        end = datetime.utcnow()
-        print(f'loss backward {end - start}')
+        """end = datetime.utcnow()
+        print(f'loss backward {end - start}')"""
         if self.gradient_clipping:
             for param in self.policy_net.parameters():  # only clamp lstm gradients (ltpwtl paper)
                 param.grad.data.clamp_(min=-1, max=1)
 
-        start = datetime.utcnow()
+        # start = datetime.utcnow()
         self.optimizer.step()
-        end = datetime.utcnow()
-        print(f'optimizer step {end - start}')
+        """end = datetime.utcnow()
+        print(f'optimizer step {end - start}')"""
         self.k_count += 1
         self.policy_net.eval()
-        print(f'k_count: {self.k_count}')
+        # print(f'k_count: {self.k_count}')
 
         self.policy_net.init_hidden()
         self.target_net.init_hidden()

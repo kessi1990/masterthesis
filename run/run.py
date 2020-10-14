@@ -30,9 +30,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 2500  # 2000000  # 1000000  # 5000000
-evaluation_start = 250 # 10000  # 10000  # 50000
-evaluation_steps = 1500 # 10000  # 5000   # 25000
+training_steps = 50000  # 2000000  # 1000000  # 5000000
+evaluation_start = 10000 # 10000  # 10000  # 50000
+evaluation_steps = 10000 # 10000  # 5000   # 25000
 
 
 def evaluate_model(model):
@@ -253,11 +253,11 @@ if __name__ == '__main__':
 
         # train every 4th step
         if step % 4 == 0:
-            start = datetime.datetime.now()
+            # start = datetime.datetime.now()
             loss = agent.train()  # agent.train_batch() if batch else agent.train()
-            end = datetime.datetime.now()
+            """end = datetime.datetime.now()
             print(f'time for batch: {end - start}')
-            print(f'--------------------------------')
+            print(f'--------------------------------')"""
             losses.append(loss)
             train_counter += 1
 
