@@ -162,6 +162,10 @@ class DQN(Agent):
         reward_batch = torch.tensor(rewards, device=self.device)
         final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
 
+        # clip rewards if True
+        if self.reward_clipping:
+            reward_batch.clamp_(min=-1, max=1)
+
         # predict on state_batch and gather q_values for action_batch
         prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
 
@@ -321,6 +325,10 @@ class DQNRaw(Agent):
         action_batch = torch.tensor(actions, device=self.device, dtype=torch.int64)
         reward_batch = torch.tensor(rewards, device=self.device)
         final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
+
+        # clip rewards if True
+        if self.reward_clipping:
+            reward_batch.clamp_(min=-1, max=1)
 
         # predict on state_batch and gather q_values for action_batch
         prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
