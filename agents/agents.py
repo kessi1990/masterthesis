@@ -12,8 +12,6 @@ from abc import ABC, abstractmethod
 from agents import memory
 from models import models
 
-from datetime import datetime
-
 
 class Agent(ABC):
     """
@@ -61,6 +59,7 @@ class DQN(Agent):
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
         self.learning_rate = 0.01
+        self.learning_rate_decay = 1.95e-09
         self.epsilon = 1
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
@@ -85,7 +84,6 @@ class DQN(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer)
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
@@ -133,128 +131,79 @@ class DQN(Agent):
         """
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    """
     def train(self):
-        \"""
+        """
         trains policy network by sampling a mini batch of already experienced transitions from memory buffer and
         constructing a loss which is propagated backwards through the network
-        :return: accumulated loss
-        \"""
+        :return: loss
+        """
         if len(self.memory) < self.batch_size:
             return torch.zeros(1).item()
 
         # set policy_net to train mode
         self.policy_net.train()
 
-        # sample and slice mini_batch
-        mini_batch = self.memory.sample(self.batch_size)
-        mini_batch = np.array(mini_batch)
-        state_sequences = mini_batch[:, 0]
-        actions = mini_batch[:, 1]
-        rewards = np.clip(mini_batch[:, 2], a_min=-1, a_max=1) if self.reward_clipping else mini_batch[:, 2]
-        next_state_sequences = mini_batch[:, 3]
-        dones = mini_batch[:, 4]
-        loss = 0
+        # init hidden & cell states of both networks with batch_size
+        self.policy_net.init_hidden(batch_size=self.batch_size)
+        self.target_net.init_hidden(batch_size=self.batch_size)
 
-        # compute targets and loss
-        for i in range(self.batch_size):
-            self.policy_net.init_hidden()
-            self.target_net.init_hidden()
-            q_old = self.policy_net.forward(state_sequences[i])
-            prediction = q_old[0][actions[i]]
-            if dones[i]:
-                target = rewards[i]
-            else:
-                q_new = self.target_net.forward(next_state_sequences[i]).detach()
-                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
-            target = torch.tensor(target, requires_grad=False, device=self.device)
-            loss += functional.smooth_l1_loss(prediction, target)
-        self.k_count += 1
+        # sample mini_batch from memory buffer
+        mini_batch = self.memory.sample(self.batch_size)
+
+        # unzip / inverse zip
+        state_sequences, actions, rewards, next_state_sequences, dones = list(zip(*mini_batch))
+
+        # construct network inputs
+        state_batch = [torch.cat([seq[i] for seq in state_sequences], dim=0) for i in range(4)]
+        next_state_batch = [torch.cat([seq[i] for seq in next_state_sequences], dim=0) for i in range(4)]
+
+        # construct tensors target computation
+        action_batch = torch.tensor(actions, device=self.device, dtype=torch.int64)
+        reward_batch = torch.tensor(rewards, device=self.device)
+        final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
+
+        # predict on state_batch and gather q_values for action_batch
+        prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
+
+        # compute target according to q-learning update rule
+        target = self.target_net.forward(next_state_batch).max(dim=1)[0].detach()
+        target[final_mask] = 0
+        target = (target * self.discount_factor) + reward_batch
+
+        # compute loss
+        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
         self.optimizer.zero_grad()
 
-        start = datetime.utcnow()
+        # backpropagate loss
         loss.backward()
-        end = datetime.utcnow()
-        print(f'loss backward {end - start}')
+
+        # clip gradients if True
         if self.gradient_clipping:
             for param in self.policy_net.parameters():  # only clamp lstm gradients (ltpwtl paper)
                 param.grad.data.clamp_(min=-1, max=1)
-        start = datetime.utcnow()
-        self.optimizer.step()
-        end = datetime.utcnow()
-        print(f'optimizer step {end - start}')
 
+        # perform optimizer step
+        self.optimizer.step()
+
+        # increment counter for target_net update
+        self.k_count += 1
+
+        # update target network if True
         if self.k_count >= self.k_target:
             print(f'updating target network')
             self.update_target()
             self.k_count = 0
 
-        # set policy_net to evaluation mode
+        # decay learning rate if decay factor is set
+        if self.learning_rate_decay:
+            self.optimizer.defaults['lr'] -= self.learning_rate_decay
+
+        # set policy_net to eval mode
         self.policy_net.eval()
 
-        # set init hidden
-        self.policy_net.init_hidden()
-        self.target_net.init_hidden()
-        print(f'k_count: {self.k_count}')
-        return loss.item()
-    """
-
-    def train(self):
-        if len(self.memory) < self.batch_size:
-            return torch.zeros(1).item()
-
-        self.policy_net.train()
-
-        self.policy_net.init_hidden(batch_size=self.batch_size)
-        self.target_net.init_hidden(batch_size=self.batch_size)
-
-        mini_batch = np.array(self.memory.sample(self.batch_size))
-        state_sequences = mini_batch[:, 0]
-        actions = mini_batch[:, 1]
-        reward = torch.tensor(list(mini_batch[:, 2]), device=self.device).unsqueeze(dim=1)
-        next_state_sequences = mini_batch[:, 3]
-        dones = mini_batch[:, 4]
-
-        state_batch = [torch.cat([seq[i] for seq in state_sequences], dim=0) for i in range(4)]
-        next_state_batch = [torch.cat([seq[i] for seq in next_state_sequences], dim=0) for i in range(4)]
-
-        state_q = self.policy_net.forward(state_batch)
-
-        with torch.no_grad():
-            next_state_q = self.target_net.forward(next_state_batch)
-
-        target = torch.max(next_state_q, dim=-1, keepdim=True)[0]
-        target = (target * self.discount_factor) + reward
-        target = target.clone().detach().requires_grad_(False)
-        # TODO: terminal / non terminal states
-
-        prediction = torch.stack([state_q[i][a] for i, a in enumerate(actions)]).unsqueeze(dim=1)
-
-        # start = datetime.utcnow()
-        loss = functional.smooth_l1_loss(prediction, target)
-        """end = datetime.utcnow()
-        print(f'loss {end - start}')"""
-
-        self.optimizer.zero_grad()
-
-        # start = datetime.utcnow()
-        loss.backward()
-        """end = datetime.utcnow()
-        print(f'loss backward {end - start}')"""
-        if self.gradient_clipping:
-            for param in self.policy_net.parameters():  # only clamp lstm gradients (ltpwtl paper)
-                param.grad.data.clamp_(min=-1, max=1)
-
-        # start = datetime.utcnow()
-        self.optimizer.step()
-        """end = datetime.utcnow()
-        print(f'optimizer step {end - start}')"""
-        self.k_count += 1
-        self.policy_net.eval()
-        # print(f'k_count: {self.k_count}')
-
+        # init hidden & cell states of both networks with default (batch=1)
         self.policy_net.init_hidden()
         self.target_net.init_hidden()
         return loss.item()
@@ -278,14 +227,17 @@ class DQNRaw(Agent):
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
         self.learning_rate = 0.01
+        self.learning_rate_decay = 1.95e-09
         self.epsilon = 1
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = deque(maxlen=5000000)  # memory.ReplayMemory(maxlen=500000)
+        self.memory = memory.ReplayMemory(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
+        self.reward_clipping = False
+        self.gradient_clipping = False
 
         self.device = device
         self.policy_net = models.DQNModel(nr_actions, device).to(device)
@@ -298,7 +250,6 @@ class DQNRaw(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        # self.criterion = functional.smooth_l1_loss()
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
@@ -325,7 +276,7 @@ class DQNRaw(Agent):
         if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
             return np.random.choice(self.action_space)
         else:
-            q_values = self.policy_net.forward(state.unsqueeze(dim=0))
+            q_values = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
             return action
 
@@ -348,49 +299,68 @@ class DQNRaw(Agent):
         """
         trains policy network by sampling a mini batch of already experienced transitions from memory buffer and
         constructing a loss which is propagated backwards through the network
-        :return: accumulated loss
+        :return: loss
         """
         if len(self.memory) < self.batch_size:
-            return torch.zeros(1)
+            return torch.zeros(1).item()
 
         # set policy_net to train mode
         self.policy_net.train()
 
-        # sample and slice mini_batch
-        mini_batch = random.sample(self.memory, self.batch_size) # self.memory.sample(self.batch_size)  # random.sample(self.memory, self.batch_size)
-        # mini_batch = [data for data in mini_batch]
-        states = [data[0] for data in mini_batch] # mini_batch[:, 0]
-        actions = [data[1] for data in mini_batch] # mini_batch[:, 1]
-        rewards = [data[2] for data in mini_batch] # mini_batch[:, 2]
-        next_states = [data[3] for data in mini_batch] # mini_batch[:, 3]
-        dones = [data[4] for data in mini_batch] # mini_batch[:, 4]
-        loss = 0
+        # sample mini_batch from memory buffer
+        mini_batch = self.memory.sample(self.batch_size)
 
-        # compute targets and loss
-        for i in range(self.batch_size):
-            q_old = self.policy_net.forward(states[i].unsqueeze(dim=0))
-            prediction = q_old[0][actions[i]]
-            if dones[i]:
-                target = rewards[i]
-            else:
-                q_new = self.target_net.forward(next_states[i].unsqueeze(dim=0)).detach()
-                target = rewards[i] + self.discount_factor * torch.max(q_new[0]).item()
-            target = torch.tensor(target, requires_grad=False, device=self.device)
-            loss += functional.smooth_l1_loss(prediction, target)
-        self.k_count += 1
+        # unzip / inverse zip
+        states, actions, rewards, next_states, dones = list(zip(*mini_batch))
+
+        # construct network inputs
+        state_batch = torch.cat(states)
+        next_state_batch = torch.cat(next_states)
+
+        # construct tensors target computation
+        action_batch = torch.tensor(actions, device=self.device, dtype=torch.int64)
+        reward_batch = torch.tensor(rewards, device=self.device)
+        final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
+
+        # predict on state_batch and gather q_values for action_batch
+        prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
+
+        # compute target according to q-learning update rule
+        target = self.target_net.forward(next_state_batch).max(dim=1)[0].detach()
+        target[final_mask] = 0
+        target = (target * self.discount_factor) + reward_batch
+
+        # compute loss
+        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
         self.optimizer.zero_grad()
+
+        # backpropagate loss
         loss.backward()
-        for param in self.policy_net.parameters():
-            param.grad.data.clamp_(min=-1, max=1)
+
+        # clip gradients if True
+        if self.gradient_clipping:
+            for param in self.policy_net.parameters():
+                param.grad.data.clamp_(min=-1, max=1)
+
+        # perform optimizer step
         self.optimizer.step()
 
+        # increment counter for target_net update
+        self.k_count += 1
+
+        # update target network if True
         if self.k_count >= self.k_target:
             print(f'updating target network')
             self.update_target()
             self.k_count = 0
 
-        # set policy_net to evaluation mode
+        # decay learning rate if decay factor is set
+        if self.learning_rate_decay:
+            self.optimizer.defaults['lr'] -= self.learning_rate_decay
+
+        # set policy_net to eval mode
         self.policy_net.eval()
-        return loss
+
+        return loss.item()
