@@ -8,6 +8,10 @@ import copy
 import gc
 import random
 
+# pytorch lr_scheduler.state_dict() and .load_state_dict throw warnings when being called --> ignore
+import warnings
+warnings.filterwarnings("ignore")
+
 from collections import deque
 
 from agents import agents as a
@@ -29,9 +33,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'device: {device}')
 t = transformation.Transformation(config)
 
-training_steps = 50000  # 2000000  # 1000000  # 5000000
-evaluation_start = 10000 # 10000  # 10000  # 50000
-evaluation_steps = 10000 # 10000  # 5000   # 25000
+training_steps = 2000000  # 1000000  # 5000000
+evaluation_start = 10000  # 10000    # 50000
+evaluation_steps = 10000  # 5000     # 25000
 
 
 def evaluate_model(model):
@@ -162,17 +166,23 @@ if __name__ == '__main__':
     print(f'model: {model_type}')
     print(f'num_layers: {num_layers}')
     print(f'env_type: {env_type}')
-    print(f'learning_rate ? {agent.optimizer.defaults["lr"]}')
     print('-----------------------------------------------------')
 
     if checkpoint:
         print(f'found checkpoint in directory:\n{directory}')
         print(f'loading checkingpoint ...')
+        train_counter = checkpoint['train_counter']
+        continue_steps = checkpoint['continue']
         agent.policy_net.load_state_dict(checkpoint['policy_net'])
         agent.target_net.load_state_dict(checkpoint['policy_net'])
         agent.policy_net.to(device)
         agent.target_net.to(device)
         agent.optimizer.load_state_dict(checkpoint['optimizer'])
+        if agent.lr_scheduler:
+            agent.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        agent.learning_rate = checkpoint['learning_rate']
+        agent.learning_rate_decay = checkpoint['learning_rate_decay']
+        agent.learning_rate_min = checkpoint['learning_rate_min']
         agent.epsilon = checkpoint['epsilon']
         agent.epsilon_decay = checkpoint['epsilon_decay']
         agent.epsilon_min = checkpoint['epsilon_min']
@@ -180,8 +190,8 @@ if __name__ == '__main__':
         agent.batch_size = checkpoint['batch_size']
         agent.k_count = checkpoint['k_count']
         agent.k_target = checkpoint['k_target']
-        train_counter = checkpoint['train_counter']
-        continue_steps = checkpoint['continue']
+        agent.reward_clipping = checkpoint['reward_clipping']
+        agent.gradient_clipping = checkpoint['gradient_clipping']
         print(f'... done!')
         print(f'continue training at: {train_counter} / {int(training_steps / 4)}, steps: {continue_steps} / {training_steps}')
         print('-----------------------------------------------------')
@@ -196,14 +206,20 @@ if __name__ == '__main__':
     print(f'epsilon: {agent.epsilon}')
     print(f'epsilon_decay: {agent.epsilon_decay}')
     print(f'epsilon_min: {agent.epsilon_min}')
+    print(f'learning_rate_start: {agent.learning_rate}')
+    print(f'learning_rate_decay: {agent.learning_rate_decay}')
+    print(f'learning_rate_min: {agent.learning_rate_min}')
+    print(f'learning_rate_current: {agent.optimizer.param_groups[0]["lr"]}')
+    print(f'reward_clipping: {agent.reward_clipping}')
+    print(f'gradient_clipping: {agent.gradient_clipping}')
     print(f'discount_factor: {agent.discount_factor}')
     print(f'batch_size: {agent.batch_size}')
     print(f'memory_maxlen: {agent.memory.maxlen}')
     print(f'memory_size: {len(agent.memory)}')
     print(f'k_count: {agent.k_count}')
     print(f'k_target: {agent.k_target}')
+    print(f'optimizer: {agent.optimizer}')
     print('=====================================================')
-
 
     print('training model ...')
     start = datetime.datetime.now()

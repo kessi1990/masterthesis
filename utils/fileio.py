@@ -63,6 +63,10 @@ def save_checkpoint(agent, train_counter, steps, directory):
         'policy_net': agent.policy_net.state_dict(),
         'target_net': agent.target_net.state_dict(),
         'optimizer': agent.optimizer.state_dict(),
+        'lr_scheduler': agent.lr_scheduler.state_dict() if agent.lr_scheduler else None,
+        'learning_rate': agent.learning_rate,
+        'learning_rate_decay': agent.learning_rate_decay,
+        'learning_rate_min': agent.learning_rate_min,
         'epsilon': agent.epsilon,
         'epsilon_decay': agent.epsilon_decay,
         'epsilon_min': agent.epsilon_min,
@@ -71,6 +75,8 @@ def save_checkpoint(agent, train_counter, steps, directory):
         'memory_size': agent.memory.maxlen,
         'k_count': agent.k_count,
         'k_target': agent.k_target,
+        'reward_clipping': agent.reward_clipping,
+        'gradient_clipping': agent.gradient_clipping,
         'train_counter': train_counter,
         'continue': steps
     }

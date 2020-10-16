@@ -59,7 +59,9 @@ class DQN(Agent):
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
         self.learning_rate = 0.01
-        self.learning_rate_decay = 1.95e-09
+        self.learning_rate_decay = 1.95e-08
+        self.learning_rate_min = 0.00025
+        self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
         self.epsilon = 1
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
@@ -68,7 +70,7 @@ class DQN(Agent):
         self.memory = memory.ReplayMemory(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
-        self.reward_clipping = False
+        self.reward_clipping = True
         self.gradient_clipping = False
 
         self.device = device
@@ -84,6 +86,7 @@ class DQN(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
+        self.lr_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
@@ -191,6 +194,10 @@ class DQN(Agent):
         # perform optimizer step
         self.optimizer.step()
 
+        # decay learning rate if scheduler exists
+        if self.lr_scheduler:
+            self.lr_scheduler.step()
+
         # increment counter for target_net update
         self.k_count += 1
 
@@ -200,16 +207,13 @@ class DQN(Agent):
             self.update_target()
             self.k_count = 0
 
-        # decay learning rate if decay factor is set
-        if self.learning_rate_decay:
-            self.optimizer.defaults['lr'] -= self.learning_rate_decay
-
         # set policy_net to eval mode
         self.policy_net.eval()
 
         # init hidden & cell states of both networks with default (batch=1)
         self.policy_net.init_hidden()
         self.target_net.init_hidden()
+
         return loss.item()
 
 
@@ -231,7 +235,9 @@ class DQNRaw(Agent):
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
         self.learning_rate = 0.01
-        self.learning_rate_decay = 1.95e-09
+        self.learning_rate_decay = 1.95e-08
+        self.learning_rate_min = 0.00025
+        self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
         self.epsilon = 1
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
@@ -254,6 +260,7 @@ class DQNRaw(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
+        self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """
@@ -355,6 +362,10 @@ class DQNRaw(Agent):
         # perform optimizer step
         self.optimizer.step()
 
+        # decay learning rate if scheduler exists
+        if self.lr_scheduler:
+            self.lr_scheduler.step()
+
         # increment counter for target_net update
         self.k_count += 1
 
@@ -363,10 +374,6 @@ class DQNRaw(Agent):
             print(f'updating target network')
             self.update_target()
             self.k_count = 0
-
-        # decay learning rate if decay factor is set
-        if self.learning_rate_decay:
-            self.optimizer.defaults['lr'] -= self.learning_rate_decay
 
         # set policy_net to eval mode
         self.policy_net.eval()
