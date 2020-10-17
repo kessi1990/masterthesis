@@ -246,7 +246,7 @@ class DQNRaw(Agent):
         self.memory = memory.ReplayMemory(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
-        self.reward_clipping = False
+        self.reward_clipping = True
         self.gradient_clipping = False
 
         self.device = device
@@ -260,7 +260,7 @@ class DQNRaw(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        self.lr_scheduler = LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
+        self.lr_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
     def append_sample(self, state_seq, action, reward, next_state_seq, done):
         """

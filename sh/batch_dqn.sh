@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#SBATCH --job-name darqn
+#SBATCH --job-name base
 #SBATCH --gres=gpu:0
 env=$1
 cells=$2

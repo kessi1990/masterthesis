@@ -8,7 +8,7 @@ import copy
 import gc
 import random
 
-# pytorch lr_scheduler.state_dict() and .load_state_dict throw warnings when being called --> ignore
+# pytorch lr_scheduler.state_dict() and .load_state_dict throw a warning when being invoked --> ignore
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -24,17 +24,21 @@ from utils import plots
 model_type = sys.argv[1]
 env_type = sys.argv[2]
 num_layers = int(sys.argv[3])
+dir_id = int(sys.argv[4])
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir(model_type, env_type, num_layers)
+directory = fileio.mkdir(model_type, env_type, num_layers, dir_id=dir_id)
 checkpoint = fileio.load_checkpoint(directory)
 env = gym.make(env_type)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'device: {device}')
 t = transformation.Transformation(config)
 
+print(f'dir_id: {dir_id}')
+print(f'path: {directory}')
+print(f'device: {device}')
+
 training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 10000  # 10000    # 50000
+evaluation_start = 50000  # 10000    # 50000
 evaluation_steps = 10000  # 5000     # 25000
 
 
@@ -79,10 +83,6 @@ def evaluate_model(model):
         steps += 1
         next_state_seq.append(t.transform(next_state))
         state_seq = copy.deepcopy(next_state_seq)
-
-        # set show True to plot attention
-        """if steps == 50:
-            model.policy_net.show = True"""
 
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:

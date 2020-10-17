@@ -22,8 +22,11 @@ def make_dir(config):
     return path + '/'
 
 
-def mkdir(model, env, num_layers):
-    path = f'../output_new/{model}_{env}_{num_layers}'
+def mkdir(model, env, num_layers, dir_id=None):
+    if dir_id is not None:
+        path = f'../output/ID_{dir_id}/{model}_{env}_{num_layers}'
+    else:
+        path = f'../output_new/{model}_{env}_{num_layers}'
     if not os.path.exists(path):
         os.mkdir(path, 0o755)
     return path + '/'
@@ -86,7 +89,6 @@ def save_checkpoint(agent, train_counter, steps, directory):
 
 def load_checkpoint(directory):
     path = directory + 'checkpoint.pt'
-    print(f'path: {path}')
     if os.path.exists(path):
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
         return checkpoint

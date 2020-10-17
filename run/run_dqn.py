@@ -19,19 +19,24 @@ from utils import transformation
 from utils import plots
 
 
-model_type = 'dqn'
-env_type = 'Breakout-v0'
+model_type = sys.argv[1]
+env_type = sys.argv[2]
+num_layers = int(sys.argv[3])
+dir_id = int(sys.argv[4])
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir(model_type, env_type, 0)
+directory = fileio.mkdir(model_type, env_type, num_layers, dir_id=dir_id)
 checkpoint = fileio.load_checkpoint(directory)
 env = gym.make(env_type)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'device: {device}')
 t = transformation.Transformation(config)
 
+print(f'dir_id: {dir_id}')
+print(f'path: {directory}')
+print(f'device: {device}')
+
 training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 10000  # 10000  # 50000
+evaluation_start = 50000  # 10000  # 50000
 evaluation_steps = 10000  # 5000   # 25000
 
 
