@@ -39,3 +39,6 @@ sbatch --partition=Luna --cpus-per-task=4 --gres=gpu:0 --exclusive batch_cead.sh
 #sbatch --partition=Luna --cpus-per-task=4 --gres=gpu:0 --exclusive batch_cead.sh Pong-v0 2 0
 #sbatch --partition=Luna --cpus-per-task=4 --gres=gpu:0 --exclusive batch_cead.sh Pong-v0 4 0
 #sbatch --partition=Luna --cpus-per-task=4 --gres=gpu:0 --exclusive batch_cead.sh Pong-v0 8 0
+
+
+
