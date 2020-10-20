@@ -21,7 +21,7 @@ class CNN(nn.Module):
         self.device = device
         self.conv_1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)
         self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)
-        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=3, stride=1)
+        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1)
 
     def forward(self, state):
         """
@@ -45,8 +45,8 @@ class Attention(nn.Module):
 
         """
         super(Attention, self).__init__()
-        self.fc_1 = nn.Linear(in_features=256, out_features=256)
-        self.fc_2 = nn.Linear(in_features=256, out_features=256)
+        self.fc_1 = nn.Linear(in_features=128, out_features=128)
+        self.fc_2 = nn.Linear(in_features=128, out_features=128)
 
     def forward(self, input_vectors, last_hidden_state):
         """
@@ -77,7 +77,7 @@ class Encoder(nn.Module):
         :param num_layers: number of LSTM layers
         """
         super(Encoder, self).__init__()
-        self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
+        self.lstm = nn.LSTM(input_size=128, hidden_size=128, num_layers=num_layers)
 
     def forward(self, input_sequence, hidden_state, hidden_cell):
         """
@@ -101,7 +101,7 @@ class Decoder(nn.Module):
         :param num_layers: number of LSTM layers
         """
         super(Decoder, self).__init__()
-        self.lstm = nn.LSTM(input_size=256, hidden_size=256, num_layers=num_layers)
+        self.lstm = nn.LSTM(input_size=128, hidden_size=128, num_layers=num_layers)
 
     def forward(self, input_sequence, hidden_state, hidden_cell):
         """
@@ -125,7 +125,7 @@ class QNet(nn.Module):
         :param nr_actions: number of actions
         """
         super(QNet, self).__init__()
-        self.fc_1 = nn.Linear(in_features=256, out_features=nr_actions)
+        self.fc_1 = nn.Linear(in_features=128, out_features=nr_actions)
 
     def forward(self, decoder_out):
         """
@@ -186,8 +186,8 @@ class DARQNModel(nn.Module):
         :param batch_size: size of mini batch
         :return:
         """
-        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
-        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
+        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
 
     @staticmethod
     def build_vector(feature_maps):
@@ -256,10 +256,10 @@ class CEADModel(nn.Module):
         :param batch_size: size of mini batch
         :return:
         """
-        self.enc_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
-        self.enc_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
-        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
-        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 256, device=self.device)
+        self.enc_h_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
+        self.enc_c_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
+        self.dec_h_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
+        self.dec_c_t = torch.zeros(self.num_layers, batch_size, 128, device=self.device)
 
     @staticmethod
     def build_vector(feature_maps):
