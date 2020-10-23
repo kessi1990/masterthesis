@@ -1,0 +1,46 @@
+############################################################################################
+# 											train 										   #
+############################################################################################
+
+
+Attention training:
+
+------ ATTENTION computation
+------ ATTENTION: input_vectors torch.Size([49, 32, 256])
+aligning every vector torch.Size([32, 256]) from input_vectors torch.Size([49, 32, 256]) with last_hidden_state torch.Size([32, 256])
+------------------
+vector torch.Size([32, 256]) --> fc_1(vector) --> weighted_vector
+weighted_vector torch.Size([32, 256]) + last_hidden_state torch.Size([32, 256]) --> aligned_vector
+aligned_vector torch.Size([32, 256]) --> tanh(aligned_vector) --> aligned_vector
+aligned_vector torch.Size([32, 256]) --> fc_1(aligned_vector) --> weighted_aligned_vector
+weighted_aligned_vector torch.Size([32, 256]) --> softmax(weighted_aligned_vector, dim=-1) --> attention_weights
+c torch.Size([32, 256]) = attention_weights torch.Size([32, 256]) * vector torch.Size([32, 256])
+------------------
+--> stack all c --> context torch.Size([49, 32, 256])
+--> sum(context) --> context torch.Size([32, 256]) (linear combination)
+--> context.unsqueeze(dim=0) torch.Size([1, 32, 256])
+--> stack all attention_weights --> weights torch.Size([49, 32, 256])
+
+
+############################################################################################
+# 											policy 										   #
+############################################################################################
+
+
+Attention policy:
+
+------ ATTENTION computation
+------ ATTENTION: input_vectors torch.Size([49, 1, 256])
+aligning every vector torch.Size([1, 256]) from input_vectors torch.Size([49, 1, 256]) with last_hidden_state torch.Size([1, 256])
+------------------
+vector torch.Size([1, 256]) --> fc_1(vector) --> weighted_vector
+weighted_vector torch.Size([1, 256]) + last_hidden_state torch.Size([1, 256]) --> aligned_vector
+aligned_vector torch.Size([1, 256]) --> tanh(aligned_vector) --> aligned_vector
+aligned_vector torch.Size([1, 256]) --> fc_1(aligned_vector) --> weighted_aligned_vector
+weighted_aligned_vector torch.Size([1, 256]) --> softmax(weighted_aligned_vector, dim=-1) --> attention_weights
+c torch.Size([1, 256]) = attention_weights torch.Size([1, 256]) * vector torch.Size([1, 256])
+------------------
+--> stack all c --> context torch.Size([49, 1, 256])
+--> sum(context) --> context torch.Size([1, 256]) (linear combination)
+--> context.unsqueeze(dim=0) torch.Size([1, 1, 256])
+--> stack all attention_weights --> weights torch.Size([49, 1, 256])

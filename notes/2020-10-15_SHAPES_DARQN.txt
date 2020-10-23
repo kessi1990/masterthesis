@@ -1,0 +1,390 @@
+############################################################################################
+# 											train 										   #
+############################################################################################
+
+
+run.py darqn Breakout-v0 2
+no data
+path: ../output_new/darqn_Breakout-v0_2/checkpoint.pt
+device: cpu
+nr_actions: 4, action_space: [0, 1, 2, 3]
+=====================================================
+model: darqn
+num_layers: 2
+env_type: Breakout-v0
+-----------------------------------------------------
+epsilon: 1
+epsilon_decay: 9e-07
+epsilon_min: 0.1
+discount_factor: 0.99
+batch_size: 32
+memory_maxlen: 500000
+memory_size: 0
+k_count: 0
+k_target: 10000
+=====================================================
+training model ...
+-- AGENT TRAIN
+-- AGENT TRAIN: policy_net forward
+---- DARQN FORWARD
+---- DARQN FORWARD: input_frames 4
+======================================================
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+-- AGENT TRAIN: target_net forward
+---- DARQN FORWARD
+---- DARQN FORWARD: input_frames 4
+======================================================
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+---- input_frame torch.Size([32, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([32, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([32, 256, 7, 7])
+---- feature_maps torch.Size([32, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 32, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([32, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 32, 256])
+------ ATTENTION in: last_hidden_state torch.Size([32, 256])
+------ ATTENTION out: context torch.Size([1, 32, 256])
+------ ATTENTION out: weights torch.Size([49, 32, 256])
+---- context torch.Size([1, 32, 256]) --> DECODER
+---- weights torch.Size([49, 32, 256]) -->    -   
+---- dec_h_t torch.Size([2, 32, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 32, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 32, 256])
+------ DECODER in: hidden_state torch.Size([2, 32, 256])
+------ DECODER in: hidden_cell torch.Size([2, 32, 256])
+------ DECODER  - : output torch.Size([1, 32, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([32, 256])
+------ DECODER out: hidden_state torch.Size([2, 32, 256])
+------ DECODER out: hidden_cell torch.Size([1, 32, 256])
+---- decoder_out torch.Size([32, 256]) --> QNET
+---- dec_h_t torch.Size([2, 32, 256]) -->    -   
+---- dec_c_t torch.Size([2, 32, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([32, 256])
+------ QNET out: q_values torch.Size([32, 4])
+------------------------------------------------------
+
+
+############################################################################################
+# 											policy 										   #
+############################################################################################
+
+
+run.py darqn Breakout-v0 2
+no data
+path: ../output_new/darqn_Breakout-v0_2/checkpoint.pt
+device: cpu
+nr_actions: 4, action_space: [0, 1, 2, 3]
+=====================================================
+model: darqn
+num_layers: 2
+env_type: Breakout-v0
+-----------------------------------------------------
+epsilon: 0
+epsilon_decay: 9e-07
+epsilon_min: 0.1
+discount_factor: 0.99
+batch_size: 32
+memory_maxlen: 500000
+memory_size: 0
+k_count: 0
+k_target: 10000
+=====================================================
+-- AGENT POLICY: policy_net forward
+---- DARQN FORWARD
+---- DARQN FORWARD: input_frames 4
+======================================================
+---- input_frame torch.Size([1, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([1, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([1, 256, 7, 7])
+---- feature_maps torch.Size([1, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 1, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([1, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 1, 256])
+------ ATTENTION in: last_hidden_state torch.Size([1, 256])
+------ ATTENTION out: context torch.Size([1, 1, 256])
+------ ATTENTION out: weights torch.Size([49, 1, 256])
+---- context torch.Size([1, 1, 256]) --> DECODER
+---- weights torch.Size([49, 1, 256]) -->    -   
+---- dec_h_t torch.Size([2, 1, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 1, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 1, 256])
+------ DECODER in: hidden_state torch.Size([2, 1, 256])
+------ DECODER in: hidden_cell torch.Size([2, 1, 256])
+------ DECODER  - : output torch.Size([1, 1, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([1, 256])
+------ DECODER out: hidden_state torch.Size([2, 1, 256])
+------ DECODER out: hidden_cell torch.Size([1, 1, 256])
+---- decoder_out torch.Size([1, 256]) --> QNET
+---- dec_h_t torch.Size([2, 1, 256]) -->    -   
+---- dec_c_t torch.Size([2, 1, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([1, 256])
+------ QNET out: q_values torch.Size([1, 4])
+------------------------------------------------------
+---- input_frame torch.Size([1, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([1, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([1, 256, 7, 7])
+---- feature_maps torch.Size([1, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 1, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([1, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 1, 256])
+------ ATTENTION in: last_hidden_state torch.Size([1, 256])
+------ ATTENTION out: context torch.Size([1, 1, 256])
+------ ATTENTION out: weights torch.Size([49, 1, 256])
+---- context torch.Size([1, 1, 256]) --> DECODER
+---- weights torch.Size([49, 1, 256]) -->    -   
+---- dec_h_t torch.Size([2, 1, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 1, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 1, 256])
+------ DECODER in: hidden_state torch.Size([2, 1, 256])
+------ DECODER in: hidden_cell torch.Size([2, 1, 256])
+------ DECODER  - : output torch.Size([1, 1, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([1, 256])
+------ DECODER out: hidden_state torch.Size([2, 1, 256])
+------ DECODER out: hidden_cell torch.Size([1, 1, 256])
+---- decoder_out torch.Size([1, 256]) --> QNET
+---- dec_h_t torch.Size([2, 1, 256]) -->    -   
+---- dec_c_t torch.Size([2, 1, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([1, 256])
+------ QNET out: q_values torch.Size([1, 4])
+------------------------------------------------------
+---- input_frame torch.Size([1, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([1, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([1, 256, 7, 7])
+---- feature_maps torch.Size([1, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 1, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([1, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 1, 256])
+------ ATTENTION in: last_hidden_state torch.Size([1, 256])
+------ ATTENTION out: context torch.Size([1, 1, 256])
+------ ATTENTION out: weights torch.Size([49, 1, 256])
+---- context torch.Size([1, 1, 256]) --> DECODER
+---- weights torch.Size([49, 1, 256]) -->    -   
+---- dec_h_t torch.Size([2, 1, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 1, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 1, 256])
+------ DECODER in: hidden_state torch.Size([2, 1, 256])
+------ DECODER in: hidden_cell torch.Size([2, 1, 256])
+------ DECODER  - : output torch.Size([1, 1, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([1, 256])
+------ DECODER out: hidden_state torch.Size([2, 1, 256])
+------ DECODER out: hidden_cell torch.Size([1, 1, 256])
+---- decoder_out torch.Size([1, 256]) --> QNET
+---- dec_h_t torch.Size([2, 1, 256]) -->    -   
+---- dec_c_t torch.Size([2, 1, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([1, 256])
+------ QNET out: q_values torch.Size([1, 4])
+------------------------------------------------------
+---- input_frame torch.Size([1, 1, 84, 84]) --> CNN
+------ CNN in: state torch.Size([1, 1, 84, 84])
+------ CNN out: feature_maps torch.Size([1, 256, 7, 7])
+---- feature_maps torch.Size([1, 256, 7, 7]) --> build_vector (input_vector)
+---- input_vector torch.Size([49, 1, 256]) --> ATTENTION
+---- dec_h_t[-1] torch.Size([1, 256]) --> ATTENTION
+------ ATTENTION in: input_vectors torch.Size([49, 1, 256])
+------ ATTENTION in: last_hidden_state torch.Size([1, 256])
+------ ATTENTION out: context torch.Size([1, 1, 256])
+------ ATTENTION out: weights torch.Size([49, 1, 256])
+---- context torch.Size([1, 1, 256]) --> DECODER
+---- weights torch.Size([49, 1, 256]) -->    -   
+---- dec_h_t torch.Size([2, 1, 256]) --> DECODER
+---- dec_c_t torch.Size([2, 1, 256]) --> DECODER
+------ DECODER in: input_sequence torch.Size([1, 1, 256])
+------ DECODER in: hidden_state torch.Size([2, 1, 256])
+------ DECODER in: hidden_cell torch.Size([2, 1, 256])
+------ DECODER  - : output torch.Size([1, 1, 256])
+------ DECODER out: output.squeeze(dim=0) torch.Size([1, 256])
+------ DECODER out: hidden_state torch.Size([2, 1, 256])
+------ DECODER out: hidden_cell torch.Size([1, 1, 256])
+---- decoder_out torch.Size([1, 256]) --> QNET
+---- dec_h_t torch.Size([2, 1, 256]) -->    -   
+---- dec_c_t torch.Size([2, 1, 256]) -->    -   
+------ QNET in: decoder_out torch.Size([1, 256])
+------ QNET out: q_values torch.Size([1, 4])
+------------------------------------------------------
