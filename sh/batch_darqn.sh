@@ -7,4 +7,4 @@ cells=$2
 dir_id=$3
 alignment=$4
 hidden_size=$5
-/home/k/kesslermi/anaconda3/envs/masterthesis/bin/python /home/k/kesslermi/Desktop/ma-test/masterthesis/run/run.py darqn $env $cells $dir_id
+/home/k/kesslermi/anaconda3/envs/masterthesis/bin/python /home/k/kesslermi/Desktop/ma-test/masterthesis/run/run.py darqn $env $cells $dir_id $alignment $hidden_size
