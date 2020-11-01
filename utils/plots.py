@@ -13,10 +13,10 @@ def plot_intermediate_results(directory, **data):
     axarr[0, 1].set(xlabel='training steps', ylabel='epsilon')
 
     axarr[1, 0].plot(data['training_returns'], linewidth=1)
-    axarr[1, 0].set(xlabel='training episodes', ylabel='return')
+    axarr[1, 0].set(xlabel='training epoch', ylabel='return')
 
-    axarr[1, 1].plot(data['evaluation_returns'], linewidth=1)
-    axarr[1, 1].set(xlabel='evaluation episodes', ylabel='return')
+    axarr[1, 1].plot(np.array(data['evaluation_returns'])[:, 0], linewidth=1)
+    axarr[1, 1].set(xlabel='evaluation epoch', ylabel='return')
 
     plt.tight_layout()
     plt.savefig(directory + 'results.png')

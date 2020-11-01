@@ -4,7 +4,6 @@ sys.path.append('..')
 import torch
 import gym
 import datetime
-import copy
 import gc
 import random
 
@@ -12,22 +11,23 @@ import random
 import warnings
 warnings.filterwarnings("ignore")
 
-from collections import deque
-
 from agents import agents as a
 from utils import config as c
 from utils import fileio
 from utils import transformation
 from utils import plots
 
+import time
 
 model_type = sys.argv[1]
 env_type = sys.argv[2]
 num_layers = int(sys.argv[3])
 dir_id = int(sys.argv[4])
+alignment = sys.argv[5]
+hidden_size = int(sys.argv[6])
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir(model_type, env_type, num_layers, dir_id=dir_id)
+directory = fileio.mkdir(model_type, env_type, num_layers, alignment, hidden_size, dir_id=dir_id)
 checkpoint = fileio.load_checkpoint(directory)
 env = gym.make(env_type)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -38,109 +38,119 @@ print(f'path: {directory}')
 print(f'device: {device}')
 
 training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 50000  # 10000    # 50000
-evaluation_steps = 10000  # 5000     # 25000
+evaluation_start = 300  # 10000    # 50000
+evaluation_steps = 1000  # 5000     # 25000
 
 
 def evaluate_model(model):
+
+    # set policy_net to eval mode
     model.policy_net.eval()
+
+    # init hidden
     model.policy_net.init_hidden()
     model.target_net.init_hidden()
 
-    returns_ = []
-    return_ = 0
+    eval_returns = []
+    eval_return = 0
     steps = 0
     done = True
     init = True
     lives = None
-    state_seq = deque(maxlen=4)
-    next_state_seq = deque(maxlen=4)
+    state = None
 
     while steps < evaluation_steps:
-        # reset env and clear deques
+
+        # reset env
         if done:
             if not init:
-                returns_.append(return_)
+                eval_returns.append(eval_return)
             init = False
-            state_seq = deque(maxlen=4)
             env.reset()
+
+            #death detection
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
-            return_ = 0
+            eval_return = 0
+
+            # init hidden
             model.policy_net.init_hidden()
             model.target_net.init_hidden()
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = model.policy(state_seq, mode='evaluation')
+            action = model.policy(state, mode='evaluation')
 
         next_state, reward, done, info = env.step(action)
-        # env.render()
-        return_ += reward
+        next_state = t.transform(next_state)
+        state = next_state
+        eval_return += reward
         steps += 1
-        next_state_seq.append(t.transform(next_state))
-        state_seq = copy.deepcopy(next_state_seq)
 
+        # death detection
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            return_ += reward
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
+            eval_return += reward
             model.policy_net.init_hidden()
             model.target_net.init_hidden()
 
-    return sum(returns_) / len(returns_) if len(returns_) > 0 else 0
+    return (sum(eval_returns) / len(eval_returns), min(eval_returns), max(eval_returns)) if len(eval_returns) > 0 else (0, 0, 0)
 
 
 def fill_memory_buffer(model):
+
     lives = None
     done = True
-    state_seq = deque(maxlen=4)
-    next_state_seq = deque(maxlen=4)
+    state = None
+    next_state = None
     action_space = [_ for _ in range(env.action_space.n)]
-    while len(model.memory) < 5000:
 
-        # reset env and clear deques
+    while len(model.memory) < 20000:
+
+        # reset env
         if done:
-            state_seq = deque(maxlen=4)
             env.reset()
+
+            # death detection
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
+
+            # init hidden
             model.policy_net.init_hidden()
             model.target_net.init_hidden()
 
         # random action selection
         action = random.choice(action_space)
 
+        # execute random action
         next_state, reward, done, info = env.step(action)
-        next_state_seq.append(t.transform(next_state))
+        next_state = t.transform(next_state)
 
         # fill buffer
-        model.append_sample(copy.deepcopy(state_seq), action, reward, copy.deepcopy(next_state_seq), done)
+        model.append_sample(state, action, reward, next_state, done)
+        state = next_state
 
-        state_seq = copy.deepcopy(next_state_seq)
-
+        # death detection
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
+
+            # init hidden
             model.policy_net.init_hidden()
             model.target_net.init_hidden()
 
 
 if __name__ == '__main__':
-    agent = a.DQN(model_type, env.action_space.n, device, num_layers)
-    agent.policy_net.directory = directory
+    agent = a.DQN(model_type, env.action_space.n, device, num_layers, hidden_size, alignment)
 
     evaluation_returns = []
     training_returns = []
@@ -155,16 +165,17 @@ if __name__ == '__main__':
 
     continue_steps = 0
     train_counter = 0
-    return_ = 0
+    training_return = 0
     done = True
     init = True
     lives = 0
-    state_seq = deque(maxlen=4)
-    next_state_seq = deque(maxlen=4)
+    state = None
+    next_state = None
 
     print('=====================================================')
     print(f'model: {model_type}')
     print(f'num_layers: {num_layers}')
+    print(f'hidden_size: {hidden_size}')
     print(f'env_type: {env_type}')
     print('-----------------------------------------------------')
 
@@ -174,7 +185,7 @@ if __name__ == '__main__':
         train_counter = checkpoint['train_counter']
         continue_steps = checkpoint['continue']
         agent.policy_net.load_state_dict(checkpoint['policy_net'])
-        agent.target_net.load_state_dict(checkpoint['policy_net'])
+        agent.target_net.load_state_dict(checkpoint['target_net'])
         agent.policy_net.to(device)
         agent.target_net.to(device)
         agent.optimizer.load_state_dict(checkpoint['optimizer'])
@@ -225,50 +236,74 @@ if __name__ == '__main__':
     start = datetime.datetime.now()
     train_start = datetime.datetime.now()
 
+    # instead of 0 start from 1 to max_steps to avoid .. avoid what?
     for step in range(continue_steps + 1, training_steps + 1):
-        gc.collect()
         epsilons.append(agent.epsilon)
 
-        # reset env and clear deques
+        # reset env
         if done:
+
+            # call garbage collector to free memory
+            gc.collect()
+
+            # init hidden
             agent.policy_net.init_hidden()
             agent.target_net.init_hidden()
+
             if not init:
-                training_returns.append(return_)
+                training_returns.append(training_return)
             init = False
+
+            # reset env
             env.reset()
+
+            # start game
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            state_seq.clear()
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
-            return_ = 0
+            training_return = 0
 
-        # predict, no need for gradients
+        # predict action, no need for gradients
         with torch.no_grad():
-            action = agent.policy(state_seq, mode='training')
+            action = agent.policy(state, mode='training')
 
+        # execute action
         next_state, reward, done, info = env.step(action)
-        return_ += reward
-        next_state_seq.append(t.transform(next_state))
-        agent.append_sample(copy.deepcopy(state_seq), action, reward, copy.deepcopy(next_state_seq), done)
-        state_seq = copy.deepcopy(next_state_seq)
+        next_state = t.transform(next_state)
+        training_return += reward
+
+        # append experience tuple to memory buffer
+        agent.append_sample(state, action, reward, next_state, done)
+        state = next_state
+
+        # minimize epsilon
         agent.minimize_epsilon()
 
+        # death detection
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
+            state = t.transform(state)
             lives = info['ale.lives']
-            return_ += reward
-            state_seq.append(t.transform(state))
-            next_state_seq = copy.deepcopy(state_seq)
+            training_return += reward
+
+            # init hidden
             agent.policy_net.init_hidden()
             agent.target_net.init_hidden()
 
         # train every 4th step
         if step % 4 == 0:
+            # save last hidden and cell state of policy_net.decoder since both are zeroed during training
+            h_t, c_t = agent.policy_net.dec_h_t, agent.policy_net.dec_c_t
+
+            # train policy net with batch and obtain loss
             loss = agent.train()
+
+            # reset last hidden and cell state of policy_net.decoder to state before training
+            agent.policy_net.dec_h_t, agent.policy_net.dec_c_t = h_t, c_t
+
+            # append loss and increment training_counter
             losses.append(loss)
             train_counter += 1
 

@@ -12,7 +12,6 @@ from abc import ABC, abstractmethod
 from agents import memory
 from models import models
 
-
 class Agent(ABC):
     """
     abstract agent class
@@ -46,19 +45,21 @@ class DQN(Agent):
     implementation of basic DQN approach -> Q-learning with known update rule, policy and target neural networks and
     experience replay. policy and target networks are either cead- or darqn-models.
     """
-    def __init__(self, model_type, nr_actions, device, num_layers):
+    def __init__(self, model_type, nr_actions, device, num_layers, hidden_size, alignment):
         """
 
-        :param model_type: cead or darqn model
-        :param nr_actions: number of possible actions in environment, defines number of output neurons
-        :param device: evice which is in charge of computations (CPU / GPU)
-        :param num_layers: number of LSTM layers
+        :param model_type:
+        :param nr_actions:
+        :param device:
+        :param num_layers:
+        :param hidden_size:
+        :param alignment:
         """
         super().__init__()
         self.nr_actions = nr_actions
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
         self.learning_rate_decay = 1.95e-08
         self.learning_rate_min = 0.00025
         self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
@@ -67,17 +68,18 @@ class DQN(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.ReplayMemory(maxlen=500000)
+        self.memory = memory.DARQNReplayMemory(maxlen=200000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
         self.gradient_clipping = False
+        self.gradient_threshold = 10
 
         self.device = device
-        self.policy_net = models.CEADModel(nr_actions, device, num_layers).to(device) if model_type == 'cead' \
-            else models.DARQNModel(nr_actions, device, num_layers).to(device)
-        self.target_net = models.CEADModel(nr_actions, device, num_layers).to(device) if model_type == 'cead' \
-            else models.DARQNModel(nr_actions, device, num_layers).to(device)
+        self.policy_net = models.CEADModel(nr_actions, device, num_layers, hidden_size, alignment).to(device) if model_type == 'cead' \
+            else models.DARQNModel(nr_actions, device, num_layers, hidden_size, alignment).to(device)
+        self.target_net = models.CEADModel(nr_actions, device, num_layers, hidden_size, alignment).to(device) if model_type == 'cead' \
+            else models.DARQNModel(nr_actions, device, num_layers, hidden_size, alignment).to(device)
 
         # copy initial weights
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -85,37 +87,37 @@ class DQN(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        self.lr_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)  #  optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+        self.lr_scheduler = None  # optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
-    def append_sample(self, state_seq, action, reward, next_state_seq, done):
+        self.criterion = nn.MSELoss()
+
+    def append_sample(self, state, action, reward, next_state, done):
         """
         saves experience tuple to internal memory buffer of the agent
-        :param state_seq: sequence of 4 consecutive states
-        :param action: executed action in last state of state_seq
-        :param reward: obtained reward by executing action
-        :param next_state_seq: sequence of 4 consecutive next_states
-        :param done: terminal flag
+        :param state:
+        :param action:
+        :param reward:
+        :param next_state:
+        :param done:
         :return:
         """
-        # TODO: check if legit: len >= 4
-        if len(state_seq) >= 4:
-            self.memory.append((state_seq, action, reward, next_state_seq, done))
+        self.memory.append((state, action, reward, next_state, done))
 
-    def policy(self, state_sequence, mode):
+    def policy(self, state, mode):
         """
         policy pi defines behaviour of agent. with probability epsilon a random action is selected. with complementary
-        probability 1 - epsilon, a prediction of Q-values based on state_sequence is made and the corresponding action
+        probability 1 - epsilon, a prediction of Q-values based on state is made and the corresponding action
         to the highest predicted Q-value is chosen for execution. epsilon value decays during training mode, whilst
         being stationary during evaluation mode.
-        :param state_sequence: sequence of 4 consecutive states
+        :param state: state x of n consecutive states
         :param mode: training or evaluation mode
         :return: action
         """
         if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
             return np.random.choice(self.action_space)
         else:
-            q_values = self.policy_net.forward(state_sequence)
+            q_values = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
             return action
 
@@ -154,15 +156,15 @@ class DQN(Agent):
         mini_batch = self.memory.sample(self.batch_size)
 
         # unzip / inverse zip
-        state_sequences, actions, rewards, next_state_sequences, dones = list(zip(*mini_batch))
+        state_seq, actions, rewards, next_state_seq, dones = list(zip(*mini_batch))
 
         # construct network inputs
-        state_batch = [torch.cat([seq[i] for seq in state_sequences], dim=0) for i in range(4)]
-        next_state_batch = [torch.cat([seq[i] for seq in next_state_sequences], dim=0) for i in range(4)]
+        state_seq_batch = torch.stack(state_seq, dim=0).transpose(dim0=0, dim1=1)  # state_batches
+        next_state_seq_batch = torch.stack(next_state_seq, dim=0).transpose(dim0=0, dim1=1)  # next_state_batch
 
         # construct tensors target computation
         action_batch = torch.tensor(actions, device=self.device, dtype=torch.int64)
-        reward_batch = torch.tensor(rewards, device=self.device)
+        reward_batch = torch.tensor(rewards, device=self.device, dtype=torch.int8)
         final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
 
         # clip rewards if True
@@ -170,15 +172,19 @@ class DQN(Agent):
             reward_batch.clamp_(min=-1, max=1)
 
         # predict on state_batch and gather q_values for action_batch
-        prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
+        for state_batch in state_seq_batch:
+            prediction = self.policy_net.forward(state_batch)
+        prediction = prediction.gather(1, action_batch.unsqueeze(dim=1))
 
         # compute target according to q-learning update rule
-        target = self.target_net.forward(next_state_batch).max(dim=1)[0].detach()
+        for next_state_batch in next_state_seq_batch:
+            target = self.target_net.forward(next_state_batch)
+        target = target.max(dim=-1)[0].detach()
         target[final_mask] = 0
         target = (target * self.discount_factor) + reward_batch
 
         # compute loss
-        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
+        loss = self.criterion(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
         self.optimizer.zero_grad()
@@ -188,15 +194,16 @@ class DQN(Agent):
 
         # clip gradients if True
         if self.gradient_clipping:
-            for param in self.policy_net.parameters():  # only clamp lstm gradients (ltpwtl paper)
-                param.grad.data.clamp_(min=-1, max=1)
+            for param in self.policy_net.parameters(): # only clamp lstm gradients (ltpwtl paper)
+                param.grad.data.clamp_(min=self.gradient_threshold, max=self.gradient_threshold)
 
         # perform optimizer step
         self.optimizer.step()
 
         # decay learning rate if scheduler exists
         if self.lr_scheduler:
-            self.lr_scheduler.step()
+            if self.optimizer.param_groups[0]["lr"] > self.learning_rate_min:
+                self.lr_scheduler.step()
 
         # increment counter for target_net update
         self.k_count += 1
@@ -211,8 +218,8 @@ class DQN(Agent):
         self.policy_net.eval()
 
         # init hidden & cell states of both networks with default (batch=1)
-        self.policy_net.init_hidden()
-        self.target_net.init_hidden()
+        # self.policy_net.init_hidden()
+        # self.target_net.init_hidden()
 
         return loss.item()
 
@@ -234,7 +241,7 @@ class DQNRaw(Agent):
         self.nr_actions = nr_actions
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
         self.learning_rate_decay = 1.95e-08
         self.learning_rate_min = 0.00025
         self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
@@ -243,11 +250,12 @@ class DQNRaw(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.ReplayMemory(maxlen=500000)
+        self.memory = memory.DQNReplayMemory(maxlen=200000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
         self.gradient_clipping = False
+        self.gradient_threshold = 10
 
         self.device = device
         self.policy_net = models.DQNModel(nr_actions, device).to(device)
@@ -259,10 +267,12 @@ class DQNRaw(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # RMSProp instead of Adam
-        self.lr_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)  # RMSProp instead of Adam
+        self.lr_scheduler = None  # optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
-    def append_sample(self, state_seq, action, reward, next_state_seq, done):
+        # self.criterion = nn.MSELoss()
+
+    def append_sample(self, state, action, reward, next_state, done):
         """
         saves experience tuple to internal memory buffer of the agent
         :param state_seq: sequence of 4 consecutive states
@@ -272,7 +282,7 @@ class DQNRaw(Agent):
         :param done: terminal flag
         :return:
         """
-        self.memory.append((state_seq, action, reward, next_state_seq, done))
+        self.memory.append((state, action, reward, next_state, done))
 
     def policy(self, state, mode):
         """
@@ -357,14 +367,15 @@ class DQNRaw(Agent):
         # clip gradients if True
         if self.gradient_clipping:
             for param in self.policy_net.parameters():
-                param.grad.data.clamp_(min=-1, max=1)
+                param.grad.data.clamp_(min=self.gradient_threshold, max=self.gradient_threshold)
 
         # perform optimizer step
         self.optimizer.step()
 
         # decay learning rate if scheduler exists
         if self.lr_scheduler:
-            self.lr_scheduler.step()
+            if self.optimizer.param_groups[0]["lr"] > self.learning_rate_min:
+                self.lr_scheduler.step()
 
         # increment counter for target_net update
         self.k_count += 1

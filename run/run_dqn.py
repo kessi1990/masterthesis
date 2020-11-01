@@ -4,7 +4,6 @@ sys.path.append('..')
 import torch
 import gym
 import datetime
-import copy
 import gc
 import random
 
@@ -25,7 +24,7 @@ num_layers = int(sys.argv[3])
 dir_id = int(sys.argv[4])
 
 config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir(model_type, env_type, num_layers, dir_id=dir_id)
+directory = fileio.mkdir(model_type, env_type, num_layers, alignment=0, hidden_size=0, dir_id=dir_id)
 checkpoint = fileio.load_checkpoint(directory)
 env = gym.make(env_type)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -36,53 +35,78 @@ print(f'path: {directory}')
 print(f'device: {device}')
 
 training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 50000  # 10000  # 50000
-evaluation_steps = 10000  # 5000   # 25000
+evaluation_start = 300  # 10000  # 50000
+evaluation_steps = 2500  # 5000   # 25000
 
 
 def evaluate_model(model):
+
+    # set policy_net to eval mode
     model.policy_net.eval()
 
-    returns_ = []
-    return_ = 0
+    eval_returns = []
+    eval_return = 0
     steps = 0
     done = True
     init = True
+    lives = None
     state = None
 
     while steps < evaluation_steps:
         # reset env and clear deques
         if done:
             if not init:
-                returns_.append(return_)
+                eval_returns.append(eval_return)
             init = False
-            state = env.reset()
+            env.reset()
+
+            # death detection
+            # press fire (1) and continue
+            state, reward, done, info = env.step(1)
             state = t.transform(state)
-            return_ = 0
+            lives = info['ale.lives']
+            eval_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
             action = model.policy(state, mode='evaluation')
 
         next_state, reward, done, info = env.step(action)
-        return_ += reward
-        steps += 1
         next_state = t.transform(next_state)
         state = next_state
+        eval_return += reward
+        steps += 1
 
-    return sum(returns_) / len(returns_) if len(returns_) > 0 else 0
+        # death detection
+        # press fire (1) and continue
+        if lives != info['ale.lives'] and not done:
+            state, reward, done, info = env.step(1)
+            state = t.transform(state)
+            lives = info['ale.lives']
+            eval_return += reward
+
+    return (sum(eval_returns) / len(eval_returns), min(eval_returns), max(eval_returns)) if len(eval_returns) > 0 else (0, 0, 0)
 
 
 def fill_memory_buffer(model):
-    state = None
-    done = True
-    action_space = [_ for _ in range(env.action_space.n)]
-    while len(model.memory) < 5000:
 
-        # reset env and clear deques
+    lives = None
+    done = True
+    state = None
+    next_state = None
+    action_space = [_ for _ in range(env.action_space.n)]
+
+    while len(model.memory) < 20000:
+
+        # reset env
         if done:
-            state = env.reset()
+            env.reset()
+
+            # death detection
+            # press fire (1) and continue
+            state, reward, done, info = env.step(1)
             state = t.transform(state)
+            lives = info['ale.lives']
 
         # random action selection
         action = random.choice(action_space)
@@ -91,14 +115,19 @@ def fill_memory_buffer(model):
         next_state = t.transform(next_state)
 
         # fill buffer
-        model.append_sample(copy.deepcopy(state), action, reward, copy.deepcopy(next_state), done)
-
+        model.append_sample(state, action, reward, next_state, done)
         state = next_state
+
+        # death detection
+        # press fire (1) and continue
+        if lives != info['ale.lives'] and not done:
+            state, reward, done, info = env.step(1)
+            state = t.transform(state)
+            lives = info['ale.lives']
 
 
 if __name__ == '__main__':
     agent = a.DQNRaw(model_type, env.action_space.n, device, 0)
-    agent.policy_net.directory = directory
 
     evaluation_returns = []
     training_returns = []
@@ -113,7 +142,7 @@ if __name__ == '__main__':
 
     continue_steps = 0
     train_counter = 0
-    return_ = 0
+    training_return = 0
     done = True
     init = True
     lives = 0
@@ -131,7 +160,7 @@ if __name__ == '__main__':
         train_counter = checkpoint['train_counter']
         continue_steps = checkpoint['continue']
         agent.policy_net.load_state_dict(checkpoint['policy_net'])
-        agent.target_net.load_state_dict(checkpoint['policy_net'])
+        agent.target_net.load_state_dict(checkpoint['target_net'])
         agent.policy_net.to(device)
         agent.target_net.to(device)
         agent.optimizer.load_state_dict(checkpoint['optimizer'])
@@ -183,26 +212,45 @@ if __name__ == '__main__':
     train_start = datetime.datetime.now()
 
     for step in range(continue_steps + 1, training_steps + 1):
-        gc.collect()
         epsilons.append(agent.epsilon)
+
         if done:
+            gc.collect()
             if not init:
-                training_returns.append(return_)
+                training_returns.append(training_return)
             init = False
-            state = env.reset()
+
+            # reset env
+            env.reset()
+
+            # start game
+            # press fire (1) and continue
+            state, reward, done, info = env.step(1)
             state = t.transform(state)
-            return_ = 0
+            lives = info['ale.lives']
+            training_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
             action = agent.policy(state, mode='training')
 
         next_state, reward, done, info = env.step(action)
-        return_ += reward
         next_state = t.transform(next_state)
-        agent.append_sample(copy.deepcopy(state), action, reward, copy.deepcopy(next_state), done)
+        training_return += reward
+
+        agent.append_sample(state, action, reward, next_state, done)
         state = next_state
+
+        # minimize epsilon
         agent.minimize_epsilon()
+
+        # death detection
+        # press fire (1) and continue
+        if lives != info['ale.lives'] and not done:
+            state, reward, done, info = env.step(1)
+            state = t.transform(state)
+            lives = info['ale.lives']
+            training_return += reward
 
         # train every 4th step
         if step % 4 == 0:

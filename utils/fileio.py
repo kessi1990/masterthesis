@@ -22,9 +22,9 @@ def make_dir(config):
     return path + '/'
 
 
-def mkdir(model, env, num_layers, dir_id=None):
+def mkdir(model, env, num_layers, hidden_size, alignment, dir_id=None):
     if dir_id is not None:
-        path = f'../output/ID_{dir_id}/{model}_{env}_{num_layers}'
+        path = f'../output/ID_{dir_id}/{model}_{env}_{num_layers}_{alignment}_{hidden_size}'
     else:
         path = f'../output_new/{model}_{env}_{num_layers}'
     if not os.path.exists(path):
