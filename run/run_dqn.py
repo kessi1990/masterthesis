@@ -34,9 +34,9 @@ print(f'dir_id: {dir_id}')
 print(f'path: {directory}')
 print(f'device: {device}')
 
-training_steps = 2000000  # 1000000  # 5000000
-evaluation_start = 50000  # 10000  # 50000
-evaluation_steps = 25000  # 5000   # 25000
+training_steps = 10000000  # 1000000  # 5000000
+evaluation_start = 1500  # 10000  # 50000
+evaluation_steps = 3000  # 5000   # 25000
 
 
 def evaluate_model(model):

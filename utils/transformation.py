@@ -58,9 +58,9 @@ class Transformation:
         self.transformation = t.Compose([
             Resize(height=110, width=84, interpolation=Image.BICUBIC),
             Crop(top=self.top, left=self.left, height=self.crop_height, width=self.crop_width),
-            t.ToTensor(),
-            t.Normalize(mean=self.mean, std=self.std),
-            t.ToPILImage(),
+            # t.ToTensor(),
+            # t.Normalize(mean=self.mean, std=self.std),
+            # t.ToPILImage(),
             t.Grayscale(num_output_channels=1),
             t.ToTensor()
         ])

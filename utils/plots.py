@@ -2,9 +2,16 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 
-def plot_intermediate_results(directory, **data):
+def plot_intermediate_results(directory, optimizer, **data):
+    lr = optimizer.param_groups[0]['lr']
+    if isinstance(optimizer, torch.optim.RMSprop):
+        momentum = optimizer.param_groups[0]['momentum']
+        title = f'RMSProp_lr={lr}_momentum={momentum}'
+    if isinstance(optimizer, torch.optim.Adam):
+        title = f'Adam_lr={lr}'
     fig, axarr = plt.subplots(2, 2, figsize=(12, 8))
     axarr[0, 0].plot(data['loss'], linewidth=1)
     axarr[0, 0].set(xlabel='training steps', ylabel='loss')
@@ -18,7 +25,8 @@ def plot_intermediate_results(directory, **data):
     axarr[1, 1].plot(np.array(data['evaluation_returns'])[:, 0], linewidth=1)
     axarr[1, 1].set(xlabel='evaluation epoch', ylabel='return')
 
-    plt.tight_layout()
+    fig.suptitle(title)
+    # plt.tight_layout()
     plt.savefig(directory + 'results.png')
     plt.close()
 

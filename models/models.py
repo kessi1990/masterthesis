@@ -51,11 +51,11 @@ class Attention(nn.Module):
         self.alignment = alignment
         # TODO bias=False?
         if self.alignment == 'add':
-            self.fc_1 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=False)
+            self.fc_1 = nn.Linear(in_features=hidden_size, out_features=hidden_size)
         else:
-            self.fc_1 = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size, bias=False)
+            self.fc_1 = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size)
         # TODO bias=False?
-        self.fc_2 = nn.Linear(in_features=hidden_size, out_features=1, bias=False)
+        self.fc_2 = nn.Linear(in_features=hidden_size, out_features=1)
 
     def forward(self, input_vectors, last_hidden_state):
         """
@@ -76,9 +76,15 @@ class Attention(nn.Module):
         if self.alignment == 'add':
             # add
             alignment_scores = self.fc_2(torch.tanh(self.fc_1(input_vectors) + last_hidden_state.unsqueeze(dim=1)))
-        else:
+        elif self.alignment == 'concat':
             # concat
-            alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, last_hidden_state.unsqueeze(dim=1)), dim=-1))))
+            # batch, seq_len, features
+            _, seq_len, _ = input_vectors.shape
+            alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, last_hidden_state.unsqueeze(dim=1).expand(-1, seq_len, -1)), dim=-1))))
+        else:
+            # dot
+            _, seq_len, _ = input_vectors.shape
+            alignment_scores = torch.bmm(input_vectors, last_hidden_state.unsqueeze(dim=1).permute(0, 2, 1))
         attention_weights = functional.softmax(alignment_scores, dim=1)
         context = input_vectors * attention_weights
         z = torch.sum(context, dim=1, keepdim=True)

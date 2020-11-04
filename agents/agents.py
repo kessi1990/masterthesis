@@ -59,7 +59,7 @@ class DQN(Agent):
         self.nr_actions = nr_actions
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.001
+        self.learning_rate = 0.00025
         self.learning_rate_decay = 1.95e-08
         self.learning_rate_min = 0.00025
         self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
@@ -87,10 +87,10 @@ class DQN(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)  #  optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)
         self.lr_scheduler = None  # optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
-        self.criterion = nn.MSELoss()
+        # self.criterion = nn.MSELoss()
 
     def append_sample(self, state, action, reward, next_state, done):
         """
@@ -171,6 +171,9 @@ class DQN(Agent):
         if self.reward_clipping:
             reward_batch.clamp_(min=-1, max=1)
 
+        # zero gradients
+        self.optimizer.zero_grad()
+
         # predict on state_batch and gather q_values for action_batch
         for state_batch in state_seq_batch:
             prediction = self.policy_net.forward(state_batch)
@@ -184,10 +187,7 @@ class DQN(Agent):
         target = (target * self.discount_factor) + reward_batch
 
         # compute loss
-        loss = self.criterion(prediction, target.unsqueeze(dim=1))
-
-        # zero gradients
-        self.optimizer.zero_grad()
+        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
 
         # backpropagate loss
         loss.backward()
@@ -241,7 +241,7 @@ class DQNRaw(Agent):
         self.nr_actions = nr_actions
         self.action_space = [_ for _ in range(self.nr_actions)]
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.001
+        self.learning_rate = 0.00025
         self.learning_rate_decay = 1.95e-08
         self.learning_rate_min = 0.00025
         self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
@@ -249,7 +249,7 @@ class DQNRaw(Agent):
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
-        self.batch_size = 32
+        self.batch_size = 64
         self.memory = memory.DQNReplayMemory(maxlen=200000)
         self.k_count = 0
         self.k_target = 10000
@@ -267,10 +267,10 @@ class DQNRaw(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)  # RMSProp instead of Adam
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)  # optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)  #
         self.lr_scheduler = None  # optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
 
-        # self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss()
 
     def append_sample(self, state, action, reward, next_state, done):
         """
@@ -343,9 +343,13 @@ class DQNRaw(Agent):
         reward_batch = torch.tensor(rewards, device=self.device)
         final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
 
+
         # clip rewards if True
         if self.reward_clipping:
             reward_batch.clamp_(min=-1, max=1)
+
+        # zero gradients
+        self.optimizer.zero_grad()
 
         # predict on state_batch and gather q_values for action_batch
         prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
@@ -356,10 +360,10 @@ class DQNRaw(Agent):
         target = (target * self.discount_factor) + reward_batch
 
         # compute loss
-        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
+        loss = self.criterion(prediction, target.unsqueeze(dim=1))  # functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
-        self.optimizer.zero_grad()
+        # self.optimizer.zero_grad()
 
         # backpropagate loss
         loss.backward()
