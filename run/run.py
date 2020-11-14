@@ -37,7 +37,7 @@ print(f'dir_id: {dir_id}')
 print(f'path: {directory}')
 print(f'device: {device}')
 
-training_steps = 2000000  # 1000000  # 5000000
+training_steps = 5000000  # 1000000  # 5000000
 evaluation_start = 50000  # 10000    # 50000
 evaluation_steps = 25000  # 5000     # 25000
 
@@ -294,14 +294,9 @@ if __name__ == '__main__':
 
         # train every 4th step
         if step % 4 == 0:
-            # save last hidden and cell state of policy_net.decoder since both are zeroed during training
-            h_t, c_t = agent.policy_net.dec_h_t, agent.policy_net.dec_c_t
 
             # train policy net with batch and obtain loss
             loss = agent.train()
-
-            # reset last hidden and cell state of policy_net.decoder to state before training
-            agent.policy_net.dec_h_t, agent.policy_net.dec_c_t = h_t, c_t
 
             # append loss and increment training_counter
             losses.append(loss)

@@ -6,10 +6,13 @@ import gym
 import datetime
 import gc
 import random
+import copy
 
 # pytorch lr_scheduler.state_dict() and .load_state_dict throw warnings when being called --> ignore
 import warnings
 warnings.filterwarnings("ignore")
+
+from collections import deque
 
 from agents import agents as a
 from utils import config as c
@@ -35,8 +38,8 @@ print(f'path: {directory}')
 print(f'device: {device}')
 
 training_steps = 10000000  # 1000000  # 5000000
-evaluation_start = 1500  # 10000  # 50000
-evaluation_steps = 3000  # 5000   # 25000
+evaluation_start = 50000  # 10000  # 50000
+evaluation_steps = 25000  # 5000   # 25000
 
 
 def evaluate_model(model):
@@ -51,6 +54,9 @@ def evaluate_model(model):
     init = True
     lives = None
     state = None
+    next_state = None
+    state_seq = deque(maxlen=4)
+    next_state_seq = deque(maxlen=4)
 
     while steps < evaluation_steps:
         # reset env and clear deques
@@ -63,17 +69,24 @@ def evaluate_model(model):
             # death detection
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+            # state = t.transform(state)
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
             eval_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = model.policy(state, mode='evaluation')
+            action = model.policy(state_stack, mode='evaluation')
 
         next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
-        state = next_state
+        # next_state = t.transform(next_state)
+        next_state_seq.append(t.transform(next_state))
+        next_state_stack = torch.cat(list(next_state_seq), dim=1)
+        state_stack = next_state_stack
         eval_return += reward
         steps += 1
 
@@ -81,7 +94,12 @@ def evaluate_model(model):
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+            # state = t.transform(state)
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
             eval_return += reward
 
@@ -94,6 +112,8 @@ def fill_memory_buffer(model):
     done = True
     state = None
     next_state = None
+    state_seq = deque(maxlen=4)
+    next_state_seq = deque(maxlen=4)
     action_space = [_ for _ in range(env.action_space.n)]
 
     while len(model.memory) < 20000:
@@ -105,24 +125,35 @@ def fill_memory_buffer(model):
             # death detection
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+            # state = t.transform(state)
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
 
         # random action selection
         action = random.choice(action_space)
 
         next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
+        # next_state = t.transform(next_state)
+        next_state_seq.append(t.transform(next_state))
 
         # fill buffer
-        model.append_sample(state, action, reward, next_state, done)
-        state = next_state
+        model.append_sample(state_stack, action, reward, next_state_stack, done)
+        state_stack = next_state_stack
 
         # death detection
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+            # state = t.transform(state)
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
 
 
@@ -148,6 +179,8 @@ if __name__ == '__main__':
     lives = 0
     state = None
     next_state = None
+    state_seq = deque(maxlen=4)
+    next_state_seq = deque(maxlen=4)
 
     print('=====================================================')
     print(f'model: {model_type}')
@@ -226,20 +259,26 @@ if __name__ == '__main__':
             # start game
             # press fire (1) and continue
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
             training_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = agent.policy(state, mode='training')
+            action = agent.policy(state_stack, mode='training')
 
         next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
+        next_state_seq.append(t.transform(next_state))
+        next_state_stack = torch.cat(list(next_state_seq), dim=1)
         training_return += reward
 
-        agent.append_sample(state, action, reward, next_state, done)
-        state = next_state
+        agent.append_sample(state_stack, action, reward, next_state_stack, done)
+        state_stack = next_state_stack
 
         # minimize epsilon
         agent.minimize_epsilon()
@@ -248,7 +287,12 @@ if __name__ == '__main__':
         # press fire (1) and continue
         if lives != info['ale.lives'] and not done:
             state, reward, done, info = env.step(1)
-            state = t.transform(state)
+            # state = t.transform(state)
+            for i in range(4):
+                state_seq.append(t.transform(state))
+            next_state_seq = copy.deepcopy(state_seq)
+            state_stack = torch.cat(list(state_seq), dim=1)
+            next_state_stack = torch.cat(list(next_state_seq), dim=1)
             lives = info['ale.lives']
             training_return += reward
 
@@ -282,7 +326,7 @@ if __name__ == '__main__':
             print(f'... done!')
             print('-----------------------------------------------------')
             print(f'plotting intermediate results ...')
-            plots.plot_intermediate_results(directory, **results)
+            plots.plot_intermediate_results(directory, agent.optimizer, **results)
             print(f'... done!')
             print('=====================================================')
             print('continue training ...')
