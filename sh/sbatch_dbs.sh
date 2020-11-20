@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-sbatch --gres=gpu:0 darqn.sh Seaquest-v0 2 1
-# sbatch --gres=gpu:0 darqn.sh Seaquest-v0 4 1
-# sbatch --gres=gpu:0 darqn.sh Seaquest-v0 8 1
+sbatch --gres=gpu:0 dqn_grid_dbs.sh False small 21
+sbatch --gres=gpu:0 dqn_grid_dbs.sh True small 21
+# sbatch --gres=gpu:0 dqn_grid_dbs.sh False large 21
+# sbatch --gres=gpu:0 dqn_grid_dbs.sh True large 21
 
-sbatch --gres=gpu:0 darqn.sh BeamRider-v0 2 1
-# sbatch --gres=gpu:0 darqn.sh BeamRider-v0 4 1
-# sbatch --gres=gpu:0 darqn.sh BeamRider-v0 8 1
+sbatch --gres=gpu:0 dqn_dbs.sh False Pong-v0 21
+sbatch --gres=gpu:0 dqn_dbs.sh True Pong-v0 21
 
-# sbatch --gres=gpu:0 darqn.sh Breakout-v0 2 1
-# sbatch --gres=gpu:0 darqn.sh Breakout-v0 4 1
-# sbatch --gres=gpu:0 darqn.sh Breakout-v0 8 1
+sbatch --gres=gpu:0 dqn_dbs.sh False Seaquest-v0 21
+sbatch --gres=gpu:0 dqn_dbs.sh True Seaquest-v0 21
+
+sbatch --gres=gpu:0 dqn_dbs.sh False Breakout-v0 21
+sbatch --gres=gpu:0 dqn_dbs.sh True Breakout-v0 21
+
+sbatch --gres=gpu:0 dqn_dbs.sh False BeamRider-v0 21
+sbatch --gres=gpu:0 dqn_dbs.sh True BeamRider-v0 21

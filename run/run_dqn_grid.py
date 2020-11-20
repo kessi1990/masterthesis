@@ -2,37 +2,33 @@ import sys
 sys.path.append('..')
 
 import torch
-import gym
 import datetime
 import gc
 import random
-import copy
 
 # pytorch lr_scheduler.state_dict() and .load_state_dict throw warnings when being called --> ignore
 import warnings
 warnings.filterwarnings("ignore")
 
-from collections import deque
-
 from agents import agents as a
-from utils import config as c
+from utils import env_loader
 from utils import fileio
 from utils import transformation
 from utils import plots
 
-frame_stack = eval(sys.argv[1])
-model_type = 'dqn_fs' if frame_stack else 'dqn_no-fs'
-env_type = sys.argv[2]
-dir_id = int(sys.argv[3])
 
-config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir_g(model_type, env_type, dir_id)
+frame_stack = eval(sys.argv[1])
+env_size = sys.argv[2]
+dir_id = int(sys.argv[3])
+model_type = 'dqn_fs' if frame_stack else 'dqn_no-fs'
+directory = fileio.mkdir_g(model_type, f'grid-{env_size}', dir_id)
 checkpoint = fileio.load_checkpoint(directory)
-env = gym.make(env_type)
+env = env_loader.load_rooms_env(size=env_size)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-t = transformation.Transformation(config)
+t = transformation.TransformationGrid()
 
 print(f'frame_stack: {frame_stack}')
+print(f'env_size: {env_size}')
 print(f'dir_id: {dir_id}')
 print(f'path: {directory}')
 print(f'device: {device}')
@@ -50,9 +46,9 @@ def evaluate_model(model):
     eval_returns = []
     eval_return = 0
     steps = 0
+    epoch_steps = 0
     eval_done = True
     eval_init = True
-    eval_lives = None
     eval_state = None
     eval_next_state = None
     if frame_stack:
@@ -64,20 +60,16 @@ def evaluate_model(model):
         if eval_done:
             gc.collect()
             if not eval_init:
+                eval_return = (agent.discount_factor ** epoch_steps) * eval_return
                 eval_returns.append(eval_return)
             eval_init = False
-            env.reset()
-
-            # death detection
-            # press fire (1) and continue
-            eval_state, eval_reward, eval_done, eval_info = env.step(1)
+            eval_state = env.reset()
             eval_state = t.transform(eval_state)
 
             if frame_stack:
                 eval_state_stack = torch.cat([eval_state for _ in range(4)], dim=1)
                 eval_next_state_stack = torch.clone(eval_state_stack)
-
-            eval_lives = eval_info['ale.lives']
+            epoch_steps = 0
             eval_return = 0
 
         # predict, no need for gradients
@@ -86,68 +78,49 @@ def evaluate_model(model):
 
         eval_next_state, eval_reward, eval_done, eval_info = env.step(action)
         eval_next_state = t.transform(eval_next_state)
+
         if frame_stack:
             eval_next_state_stack = torch.cat((eval_next_state_stack[:, 1:], eval_next_state), dim=1)
             eval_state_stack = eval_next_state_stack
+
         eval_state = eval_next_state
+
         eval_return += eval_reward
         steps += 1
-
-        # death detection
-        # press fire (1) and continue
-        if eval_lives != eval_info['ale.lives'] and not eval_done:
-            eval_state, eval_reward, eval_done, eval_info = env.step(1)
-            eval_state = t.transform(eval_state)
-            if frame_stack:
-                eval_state_stack = torch.cat([eval_state for _ in range(4)], dim=1)
-                eval_next_state_stack = torch.clone(eval_state_stack)
-            eval_lives = eval_info['ale.lives']
-            eval_return += eval_reward
+        epoch_steps += 1
 
     return (sum(eval_returns) / len(eval_returns), min(eval_returns), max(eval_returns)) if len(eval_returns) > 0 else (0, 0, 0)
 
 
 def fill_memory_buffer(model):
 
-    lives = None
     done = True
     state = None
     next_state = None
-    action_space = [_ for _ in range(env.action_space.n)]
+
+    nr_actions = 4
+    action_space = [_ for _ in range(nr_actions)]
 
     while len(model.memory) < 20000:
 
         # reset env
         if done:
-            env.reset()
-
-            # death detection
-            # press fire (1) and continue
-            state, reward, done, info = env.step(1)
+            state = env.reset()
             state = t.transform(state)
-
-            lives = info['ale.lives']
 
         # random action selection
         action = random.choice(action_space)
 
         next_state, reward, done, info = env.step(action)
         next_state = t.transform(next_state)
-
-        # fill buffer
         model.append_sample(state, action, reward, next_state, done)
-        state = next_state
 
-        # death detection
-        # press fire (1) and continue
-        if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
+        state = next_state
 
 
 if __name__ == '__main__':
-    agent = a.DQNRaw(4 if frame_stack else 1, env.action_space.n, device)
+    nr_actions = 4  # gridworld actions -> 0: up, 1: down, 2: left, 3: right
+    agent = a.DQNRaw(4 if frame_stack else 1, nr_actions, device)
 
     evaluation_returns = []
     training_returns = []
@@ -161,11 +134,11 @@ if __name__ == '__main__':
         epsilons = results['epsilons']
 
     continue_steps = 0
+    ep_steps = 0
     train_counter = 0
     training_return = 0
     done = True
     init = True
-    lives = 0
     state = None
     next_state = None
     if frame_stack:
@@ -174,7 +147,7 @@ if __name__ == '__main__':
 
     print('=====================================================')
     print(f'model: {model_type}')
-    print(f'env_type: {env_type}')
+    print(f'env_size: {env_size}')
     print('-----------------------------------------------------')
 
     if checkpoint:
@@ -240,15 +213,13 @@ if __name__ == '__main__':
         if done:
             gc.collect()
             if not init:
+                training_return = (agent.discount_factor ** ep_steps) * training_return
                 training_returns.append(training_return)
+
             init = False
 
             # reset env
-            env.reset()
-
-            # start game
-            # press fire (1) and continue
-            state, reward, done, info = env.step(1)
+            state = env.reset()
             state = t.transform(state)
 
             if frame_stack:
@@ -257,7 +228,7 @@ if __name__ == '__main__':
             else:
                 next_state = torch.clone(state)
 
-            lives = info['ale.lives']
+            ep_steps = 0
             training_return = 0
 
         # predict, no need for gradients
@@ -274,23 +245,10 @@ if __name__ == '__main__':
 
         state = next_state
         training_return += reward
+        ep_steps += 1
 
         # minimize epsilon
         agent.minimize_epsilon()
-
-        # death detection
-        # press fire (1) and continue
-        if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-
-            if frame_stack:
-                state_stack = torch.cat([state for _ in range(4)], dim=1)
-                next_state_stack = torch.clone(state_stack)
-            else:
-                next_state = torch.clone(state)
-            lives = info['ale.lives']
-            training_return += reward
 
         # train every 4th step
         if step % 4 == 0:

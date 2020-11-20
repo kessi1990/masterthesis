@@ -32,6 +32,16 @@ def mkdir(model, env, num_layers, hidden_size, alignment, dir_id=None):
     return path + '/'
 
 
+def mkdir_g(model, env, dir_id):
+    id_path = f'../output/ID_{dir_id}'
+    path = f'../output/ID_{dir_id}/{model}_{env}'
+    if not os.path.exists(id_path):
+        os.mkdir(id_path, 0o755)
+    if not os.path.exists(path):
+        os.mkdir(path, 0o755)
+    return path + '/'
+
+
 def visual_dir(root):
     sub_dir = 'visualization/'
     full_path = os.path.join(root, sub_dir)

@@ -25,6 +25,12 @@ def read_map_file(path):
     return width, height, obstacles, starting_pos, goal_pos
 
 
-def load_rooms_env(time_limit=250, path="../env/maps/rooms_9_9.txt"):
+def load_rooms_env(size='small'):
+    if size == 'small':
+        path = "../env/maps/rooms_9_9.txt"
+        time_limit = 500
+    else:
+        path = "../env/maps/rooms_25_13.txt"
+        time_limit = 5000
     size_x, size_y, obs_coords, starting_pos, goal_pos = read_map_file(path)
     return rooms.Environment(size_x, size_y, obs_coords, starting_pos, goal_pos, time_limit)

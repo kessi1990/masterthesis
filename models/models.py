@@ -339,10 +339,10 @@ class CEADModel(nn.Module):
 
 
 class DQNModel(nn.Module):
-    def __init__(self, nr_actions, device):
+    def __init__(self, in_channels, nr_actions, device):
         super(DQNModel, self).__init__()
         self.device = device
-        self.conv_1 = nn.Conv2d(in_channels=4, out_channels=16, kernel_size=8, stride=4)
+        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=16, kernel_size=8, stride=4)
         self.conv_2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2)
         self.fc_1 = nn.Linear(in_features=2592, out_features=256)
         self.fc_2 = nn.Linear(in_features=256, out_features=nr_actions)
