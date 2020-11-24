@@ -86,3 +86,15 @@ class TransformationGrid:
     def transform(self, image):
         image = Image.fromarray(image)
         return self.transformation(image).unsqueeze(dim=0)
+
+
+class TransformationGridNoLSTM:
+    def __init__(self):
+        self.transformation = t.Compose([
+            t.Grayscale(num_output_channels=1),
+            t.ToTensor()
+        ])
+
+    def transform(self, image):
+        image = Image.fromarray(image)
+        return self.transformation(image).unsqueeze(dim=0)

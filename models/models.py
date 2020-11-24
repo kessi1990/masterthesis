@@ -98,6 +98,8 @@ class Attention(nn.Module):
             """
             # batch, seq_len, features
             _, seq_len, _ = input_vectors.shape
+            #print(f'input_vectors {input_vectors.shape}')
+            #print(f'last_hidden_state {last_hidden_state.shape}')
             alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, last_hidden_state.unsqueeze(dim=1).expand(-1, seq_len, -1)), dim=-1))))
         else:
             """
@@ -120,6 +122,9 @@ class Attention(nn.Module):
         attention_weights = functional.softmax(alignment_scores, dim=1)
         context = input_vectors * attention_weights
         z = torch.sum(context, dim=1, keepdim=True)
+        """
+        z = torch.bmm(attention_weights.permute(0, 2, 1), input_vectors)
+        """
         return z, attention_weights
 
 
@@ -342,15 +347,61 @@ class DQNModel(nn.Module):
     def __init__(self, in_channels, nr_actions, device):
         super(DQNModel, self).__init__()
         self.device = device
-        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=16, kernel_size=8, stride=4)
-        self.conv_2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2)
-        self.fc_1 = nn.Linear(in_features=2592, out_features=256)
-        self.fc_2 = nn.Linear(in_features=256, out_features=nr_actions)
+        self.conv_1 = nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=8, stride=4)
+        self.conv_2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)
+        self.conv_3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)
+        self.fc_1 = nn.Linear(in_features=3136, out_features=512)
+        self.fc_2 = nn.Linear(in_features=512, out_features=nr_actions)
 
     def forward(self, state):
         state = state.to(device=self.device)
         out = functional.relu(self.conv_1(state))
         out = functional.relu(self.conv_2(out))
+        out = functional.relu(self.conv_3(out))
         batch, *shape = out.shape
         out = functional.relu(self.fc_1(out.view(batch, -1)))
         return self.fc_2(out)
+
+
+class NoLSTM(nn.Module):
+    def __init__(self, nr_actions, in_channels, out_channels, alignment, hidden_size, device):
+        super(NoLSTM, self).__init__()
+        self.device = device
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1)
+        self.attention = Attention(alignment, hidden_size)
+        self.q_net = nn.Linear(in_features=hidden_size, out_features=nr_actions)
+
+        self.hidden_size = hidden_size
+        self.last_hidden = None
+        self.init_hidden()
+
+    def forward(self, state):
+        feature_maps = functional.relu(self.conv.forward(state))
+        input_vectors = self.build_vector(feature_maps)
+        context, weights = self.attention.forward(input_vectors, self.last_hidden.squeeze(dim=1))
+        q_values = self.q_net.forward(context.squeeze(dim=1))
+        self.last_hidden = context
+        return q_values
+
+    def init_hidden(self, batch_size=1):
+        """
+        initialize hidden and cell state of lstm with zeros
+        :param batch_size: size of mini batch
+        :return:
+        """
+        self.last_hidden = torch.zeros(batch_size, 1, self.hidden_size, device=self.device)
+
+    @staticmethod
+    def build_vector(feature_maps):
+        """
+        transform feature_maps from CNN to sequence of pixel vectors / input_vectors for LSTM input
+        (batch, channels / num_feature_maps, height, width) --> (batch, seq_len, features); e.g.
+        (32, 128, 7, 7) --> (32, 49, 128)
+        :param feature_maps: cnn output
+        :return: input vector for lstm
+        """
+        batch, _, height, width = feature_maps.shape
+        vectors = [torch.stack([feature_maps[i][:, y, x] for y in range(height) for x in range(width)], dim=0)
+                   for i in
+                   range(batch)]  # slice pixel vectors -> dimension of single vector = number of feature maps, e.g. 128
+        return torch.stack(vectors, dim=0)  # stack vectors at dim=0

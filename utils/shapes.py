@@ -89,3 +89,22 @@ def compute_sizes(config):
     config = {**config, 'input_size_enc': dim, 'hidden_size_enc': dim, 'input_size_dec': dim, 'hidden_size_dec': dim,
               'input_size_q': features, 'cnn_out': cnn_out}
     return config
+
+
+def count_parameters(model):
+    print(f'number of trainable parameters')
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        param = parameter.numel()
+        print(f'{name}: {param}')
+        total_params += param
+    print(f'total: {total_params}')
+    print(f'number of all parameters')
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        param = parameter.numel()
+        print(f'{name}: {param}')
+        total_params += param
+    print(f'total: {total_params}')
