@@ -5,4 +5,4 @@
 env=$1
 dir_id=$2
 hidden=$3
-/home/k/kesslermi/anaconda3/envs/masterthesis/bin/python /home/k/kesslermi/Desktop/ma-test/masterthesis/run/run_dqn.py $env $dir_id $hidden
+/home/k/kesslermi/anaconda3/envs/masterthesis/bin/python /home/k/kesslermi/Desktop/ma-test/masterthesis/run/run_no-lstm_grid.py $env $dir_id $hidden
