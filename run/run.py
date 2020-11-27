@@ -38,8 +38,8 @@ print(f'path: {directory}')
 print(f'device: {device}')
 
 training_steps = 5000000  # 1000000  # 5000000
-evaluation_start = 50  # 10000    # 50000
-evaluation_steps = 100  # 5000     # 25000
+evaluation_start = 50000  # 10000    # 50000
+evaluation_steps = 25000  # 5000     # 25000
 
 
 def evaluate_model(model):

@@ -68,7 +68,7 @@ class DQN(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.DARQNReplayMemory(maxlen=200000)
+        self.memory = memory.DARQNReplayMemory(maxlen=300000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
