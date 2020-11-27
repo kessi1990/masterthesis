@@ -6,6 +6,7 @@ import numpy as np
 import random
 
 from collections import deque
+from itertools import count
 from abc import ABC, abstractmethod
 
 from agents import memory
@@ -62,7 +63,6 @@ class DQN(Agent):
         self.learning_rate = 0.001
         self.learning_rate_decay = 3.0e-09
         self.learning_rate_min = 0.00025
-        self.lr_lambda = lambda epoch: self.learning_rate - (epoch * self.learning_rate_decay)  # linear decay per epoch
         self.epsilon = 1
         self.epsilon_decay = 9e-07
         self.epsilon_min = 0.1
@@ -72,8 +72,8 @@ class DQN(Agent):
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
-        self.gradient_clipping = False
-        self.gradient_threshold = 20
+        self.gradient_clipping = True
+        self.clip_value = 10
 
         self.device = device
         self.policy_net = models.CEADModel(nr_actions, device, num_layers, hidden_size, alignment).to(device) if model_type == 'cead' \
@@ -88,12 +88,9 @@ class DQN(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95)
-        self.lr_scheduler = None  # optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=self.lr_lambda, last_epoch=-1)
-
         self.criterion = nn.MSELoss()
 
         shapes.count_parameters(self.policy_net)
-        exit(0)
 
     def append_sample(self, state, action, reward, next_state, done):
         """
@@ -190,7 +187,7 @@ class DQN(Agent):
         target = (target * self.discount_factor) + reward_batch
 
         # compute loss
-        loss = functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
+        loss = self.criterion(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
         self.optimizer.zero_grad()
@@ -200,16 +197,15 @@ class DQN(Agent):
 
         # clip gradients if True
         if self.gradient_clipping:
-            for param in self.policy_net.parameters(): # only clamp lstm gradients (ltpwtl paper)
-                param.grad.data.clamp_(min=self.gradient_threshold, max=self.gradient_threshold)
+            parameters = [param for name, param in self.policy_net.named_parameters() if 'lstm' in name]
+            torch.nn.utils.clip_grad_value_(parameters, self.clip_value)
 
         # perform optimizer step
         self.optimizer.step()
 
-        # decay learning rate if scheduler exists
-        if self.lr_scheduler:
-            if self.optimizer.param_groups[0]["lr"] > self.learning_rate_min:
-                self.lr_scheduler.step()
+        # decay learning rate
+        if self.learning_rate > self.learning_rate_min:
+            self.optimizer.param_groups[0]['lr'] -= self.learning_rate_decay
 
         # increment counter for target_net update
         self.k_count += 1
@@ -367,7 +363,7 @@ class DQNRaw(Agent):
         target = (target * self.discount_factor) + reward_batch
 
         # compute loss
-        loss = self.criterion(prediction, target.unsqueeze(dim=1))  # functional.smooth_l1_loss(prediction, target.unsqueeze(dim=1))
+        loss = self.criterion(prediction, target.unsqueeze(dim=1))
 
         # zero gradients
         self.optimizer.zero_grad()
@@ -475,12 +471,12 @@ class DQNNew(Agent):
         :param mode: training or evaluation mode
         :return: action
         """
-        if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
+        if np.random.rand() <= (self.epsilon if mode == 'training' else 0.00):
             return np.random.choice(self.action_space)
         else:
-            q_values = self.policy_net.forward(state)
+            q_values, context, weights = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
-            return action
+            return action, context, weights
 
     def minimize_epsilon(self):
         """

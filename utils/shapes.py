@@ -101,10 +101,3 @@ def count_parameters(model):
         print(f'{name}: {param}')
         total_params += param
     print(f'total: {total_params}')
-    print(f'number of all parameters')
-    total_params = 0
-    for name, parameter in model.named_parameters():
-        param = parameter.numel()
-        print(f'{name}: {param}')
-        total_params += param
-    print(f'total: {total_params}')

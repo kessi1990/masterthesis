@@ -38,8 +38,8 @@ print(f'path: {directory}')
 print(f'device: {device}')
 
 training_steps = 5000000  # 1000000  # 5000000
-evaluation_start = 50000  # 10000    # 50000
-evaluation_steps = 25000  # 5000     # 25000
+evaluation_start = 50  # 10000    # 50000
+evaluation_steps = 100  # 5000     # 25000
 
 
 def evaluate_model(model):
@@ -189,8 +189,6 @@ if __name__ == '__main__':
         agent.policy_net.to(device)
         agent.target_net.to(device)
         agent.optimizer.load_state_dict(checkpoint['optimizer'])
-        if agent.lr_scheduler:
-            agent.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         agent.learning_rate = checkpoint['learning_rate']
         agent.learning_rate_decay = checkpoint['learning_rate_decay']
         agent.learning_rate_min = checkpoint['learning_rate_min']

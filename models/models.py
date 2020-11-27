@@ -50,11 +50,12 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         self.alignment = alignment
         bias = True
-        if self.alignment == 'add':
+        if self.alignment == 'general':
             self.fc_1 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=bias)
-            # self.fc_3 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=bias)
-        else:  # concat
+        elif self.alignment == 'concat':
             self.fc_1 = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size, bias=bias)
+        else:  # self.alignment == 'dot'
+            pass
         self.fc_2 = nn.Linear(in_features=hidden_size, out_features=1, bias=bias)
 
     def forward(self, input_vectors, last_hidden_state):
@@ -66,24 +67,16 @@ class Attention(nn.Module):
         """
         # b = batch
         # last_hidden_state (b, 128) -> unsqueeze(dim=1) -> (b, 1, 128)
-        if self.alignment == 'add':
+        if self.alignment == 'general':
             """
-            # add
-            # v1: align(v_it, h_t−1) = W_s(tanh(W_a(v_it) + b_a + h_t−1)) + b_s
-            # v2: align(v_it, h_t−1) = W_s(tanh(W_a(v_it) + b_a + W_h(h_t−1))) + b_s  -> additional weights matrix W_h
+            # general
+            # align(v_it, h_t−1) = h^T_t−1 * (W_a(v_it) + b_a)
             # --------------------------------------------------------------------------------------------------------
-            # 1. input_vectors (b, 49, 128) -> weights matrix with bias (fc_1) -> (b, 49, 128)
-            # 2. add last_hidden_state to every input_vector:
-            # -> input_vectors (b, 49, 128) + last_hidden_state (b, 1, 128) -> (b, 49, 128)
-            # 3. apply hyperbolic tangent function -> aligned input_vectors (b, 49, 128)
-            # 4. alignment_score for each input_vector regarding last_hidden_state:
-            # -> aligned input_vectors (b, 49, 128) -> weights matrix with bias (fc_2) -> alignment_scores (b, 49, 1)
+            # 1. weights matrix with bias (fc_1) -> (b, 49, 128) 
+            # 2. dot product transposed last_hidden_state (b, 1, 128)^T * input_vectors (b, 49, 128)
             # --------------------------------------------------------------------------------------------------------
             """
-            # v1:
-            alignment_scores = self.fc_2(torch.tanh(self.fc_1(input_vectors) + last_hidden_state.unsqueeze(dim=1)))
-            # v2:
-            # alignment_scores = self.fc_2(torch.tanh(self.fc_1(input_vectors) + self.fc_3(last_hidden_state.unsqueeze(dim=1))))
+            alignment_scores = torch.bmm(self.fc_1(input_vectors), last_hidden_state.unsqueeze(dim=1).permute(0, 2, 1))
         elif self.alignment == 'concat':
             """
             # concat
@@ -98,16 +91,13 @@ class Attention(nn.Module):
             """
             # batch, seq_len, features
             _, seq_len, _ = input_vectors.shape
-            #print(f'input_vectors {input_vectors.shape}')
-            #print(f'last_hidden_state {last_hidden_state.shape}')
             alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, last_hidden_state.unsqueeze(dim=1).expand(-1, seq_len, -1)), dim=-1))))
         else:
             """
             # dot
-            # align(v_it, h_t−1) = h^T_t−1 * (W_a(v_it) + b_a)
+            # align(v_it, h_t−1) = h^T_t−1 * v_it
             # --------------------------------------------------------------------------------------------------------
-            # 1. weights matrix with bias (fc_1) -> (b, 49, 128) 
-            # 2. dot product transposed last_hidden_state (b, 1, 128)^T * input_vectors (b, 49, 128)
+            # 1. dot product transposed last_hidden_state (b, 1, 128)^T * input_vectors (b, 49, 128)
             # --------------------------------------------------------------------------------------------------------
             """
             alignment_scores = torch.bmm(input_vectors, last_hidden_state.unsqueeze(dim=1).permute(0, 2, 1))
@@ -280,6 +270,7 @@ class CEADModel(nn.Module):
         self.num_layers = num_layers
         self.cnn = CNN(device, hidden_size)
         self.attention = Attention(alignment, hidden_size)
+        self.att_concat = nn.Linear(hidden_size * 2, hidden_size)
         self.decoder = Decoder(num_layers, hidden_size)
         self.q_net = QNet(nr_actions, hidden_size)
 
@@ -289,34 +280,14 @@ class CEADModel(nn.Module):
         self.attentional_hidden = None
         self.init_hidden()
 
-        self.attentional_hidden_computation = 'concat'
-
-        if self.attentional_hidden_computation == 'concat':
-            self.fc_3 = nn.Linear(hidden_size * 2, hidden_size)
-        else:  # add
-            self.fc_3 = nn.Linear(hidden_size, hidden_size)
-
     def forward(self, input_frame):
-        """
-        if self.dec_h_t.requires_grad:
-            self.dec_h_t.register_hook(lambda x: x.clamp_(min=-20, max=20))
-            self.dec_c_t.register_hook(lambda x: x.clamp_(min=-20, max=20))
-            self.attentional_hidden.register_hook(lambda x: x.clamp_(min=-20, max=20))
-        """
         feature_maps = self.cnn.forward(input_frame)  # -> (b, 128, 7, 7)
         input_vector = self.build_vector(feature_maps)  # -> (b, 49, 128)
         decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(self.attentional_hidden, self.dec_h_t, self.dec_c_t)  # -> (b, 1, 128), (n, b, 128), (n, b, 128);  n = num_layers
-        context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])  # -> (b, 1, 128), (b, 49, 1);
-
-        if self.attentional_hidden_computation == 'concat':
-            attentional_hidden = torch.tanh(self.fc_3(torch.cat((context, self.dec_h_t.permute(1, 0, 2)), dim=-1)))
-        else:  # add
-            attentional_hidden = self.fc_3(torch.tanh(context + self.dec_h_t.permute(1, 0, 2)))
-
-        self.attentional_hidden = attentional_hidden
-        q_values = self.q_net.forward(attentional_hidden.squeeze(dim=1))  # (b, a);  a = nr_actions
-
-        return q_values
+        context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])  # -> (b, 1, 128), (b, 49, 1)
+        self.attentional_hidden = torch.tanh(self.att_concat(torch.cat((context, self.dec_h_t.permute(1, 0, 2)), dim=-1)))
+        q_values = self.q_net.forward(self.attentional_hidden.squeeze(dim=1))  # (b, a);  a = nr_actions
+        return q_values  # , context, weights
 
     def init_hidden(self, batch_size=1):
         """
@@ -381,7 +352,7 @@ class NoLSTM(nn.Module):
         context, weights = self.attention.forward(input_vectors, self.last_hidden.squeeze(dim=1))
         q_values = self.q_net.forward(context.squeeze(dim=1))
         self.last_hidden = context
-        return q_values
+        return q_values, context, weights
 
     def init_hidden(self, batch_size=1):
         """
