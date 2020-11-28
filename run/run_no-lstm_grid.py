@@ -17,26 +17,26 @@ from utils import transformation
 from utils import plots
 
 
-frame_stack = True  # eval(sys.argv[1])
 env_size = sys.argv[1]
 dir_id = int(sys.argv[2])
 out_channels = int(sys.argv[3])
-model_type = 'no_lstm'
-directory = fileio.mkdir_g(model_type, f'grid-{env_size}-{out_channels}', dir_id)
+model_type = sys.argv[4]
+alignment = sys.argv[5]
+
+directory = fileio.mkdir_g(model_type, f'grid-{env_size}-{out_channels}-{alignment}', dir_id)
 checkpoint = fileio.load_checkpoint(directory)
 env = env_loader.load_rooms_env(size=env_size)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-t = transformation.TransformationGridNoLSTM()
+t = transformation.TransformationGrid()
 
-print(f'frame_stack: {frame_stack}')
 print(f'env_size: {env_size}')
 print(f'dir_id: {dir_id}')
 print(f'path: {directory}')
 print(f'device: {device}')
 
-training_steps = 10000000  # 1000000  # 5000000
-evaluation_start = 5000  # 10000  # 50000
-evaluation_steps = 2500  # 5000   # 25000
+training_steps = 10000000
+evaluation_start = 50000
+evaluation_steps = 25000
 
 
 def evaluate_model(model):
@@ -52,9 +52,8 @@ def evaluate_model(model):
     eval_init = True
     eval_state = None
     eval_next_state = None
-    if frame_stack:
-        eval_state_stack = None
-        eval_next_state_stack = None
+    eval_state_stack = None
+    eval_next_state_stack = None
 
     while steps < evaluation_steps:
         # reset env
@@ -67,22 +66,20 @@ def evaluate_model(model):
             eval_state = env.reset()
             eval_state = t.transform(eval_state)
 
-            if frame_stack:
-                eval_state_stack = torch.cat([eval_state for _ in range(4)], dim=1)
-                eval_next_state_stack = torch.clone(eval_state_stack)
+            eval_state_stack = torch.cat([eval_state for _ in range(4)], dim=1)
+            eval_next_state_stack = torch.clone(eval_state_stack)
             epoch_steps = 0
             eval_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = model.policy(eval_state_stack if frame_stack else eval_state, mode='evaluation')
+            action = model.policy(eval_state_stack, mode='evaluation')
 
         eval_next_state, eval_reward, eval_done, eval_info = env.step(action)
         eval_next_state = t.transform(eval_next_state)
 
-        if frame_stack:
-            eval_next_state_stack = torch.cat((eval_next_state_stack[:, 1:], eval_next_state), dim=1)
-            eval_state_stack = eval_next_state_stack
+        eval_next_state_stack = torch.cat((eval_next_state_stack[:, 1:], eval_next_state), dim=1)
+        eval_state_stack = eval_next_state_stack
 
         eval_state = eval_next_state
 
@@ -121,8 +118,7 @@ def fill_memory_buffer(model):
 
 if __name__ == '__main__':
     nr_actions = 4  # gridworld actions -> 0: up, 1: down, 2: left, 3: right
-    # agent = a.DQNRaw(4 if frame_stack else 1, nr_actions, device)
-    agent = a.DQNNew(in_channels=4, out_channels=out_channels, nr_actions=4, device=device)
+    agent = a.DQNFS(out_channels=out_channels, hidden_size=out_channels, nr_actions=4, device=device, model=model_type, alignment=alignment)
 
     evaluation_returns = []
     training_returns = []
@@ -143,9 +139,8 @@ if __name__ == '__main__':
     init = True
     state = None
     next_state = None
-    if frame_stack:
-        state_stack = None
-        next_state_stack = None
+    state_stack = None
+    next_state_stack = None
 
     print('=====================================================')
     print(f'model: {model_type}')
@@ -162,8 +157,6 @@ if __name__ == '__main__':
         agent.policy_net.to(device)
         agent.target_net.to(device)
         agent.optimizer.load_state_dict(checkpoint['optimizer'])
-        if agent.lr_scheduler:
-            agent.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         agent.learning_rate = checkpoint['learning_rate']
         agent.learning_rate_decay = checkpoint['learning_rate_decay']
         agent.learning_rate_min = checkpoint['learning_rate_min']
@@ -224,26 +217,24 @@ if __name__ == '__main__':
             state = env.reset()
             state = t.transform(state)
 
-            if frame_stack:
-                state_stack = torch.cat([state for _ in range(4)], dim=1)
-                next_state_stack = torch.clone(state_stack)
-            else:
-                next_state = torch.clone(state)
+            state_stack = torch.cat([state for _ in range(4)], dim=1)
+            next_state_stack = torch.clone(state_stack)
+            # else:
+            #    next_state = torch.clone(state)
 
             ep_steps = 0
             training_return = 0
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = agent.policy(state_stack if frame_stack else state, mode='training')
+            action = agent.policy(state_stack, mode='training')
 
         next_state, reward, done, info = env.step(action)
         next_state = t.transform(next_state)
         agent.append_sample(state, action, reward, next_state, done)
 
-        if frame_stack:
-            next_state_stack = torch.cat((next_state_stack[:, 1:], next_state), dim=1)
-            state_stack = next_state_stack
+        next_state_stack = torch.cat((next_state_stack[:, 1:], next_state), dim=1)
+        state_stack = next_state_stack
 
         state = next_state
         training_return += reward

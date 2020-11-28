@@ -75,7 +75,7 @@ class Transformation:
         return self.transformation(image).unsqueeze(dim=0)
 
 
-class TransformationGrid:
+class TransformationGridResize:
     def __init__(self):
         self.transformation = t.Compose([
             t.Resize((84, 84), interpolation=Image.NEAREST),
@@ -88,7 +88,7 @@ class TransformationGrid:
         return self.transformation(image).unsqueeze(dim=0)
 
 
-class TransformationGridNoLSTM:
+class TransformationGrid:
     def __init__(self):
         self.transformation = t.Compose([
             t.Grayscale(num_output_channels=1),

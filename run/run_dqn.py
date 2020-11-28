@@ -147,7 +147,7 @@ def fill_memory_buffer(model):
 
 
 if __name__ == '__main__':
-    agent = a.DQNRaw(4 if frame_stack else 1, env.action_space.n, device)
+    agent = a.DQNFS(4 if frame_stack else 1, env.action_space.n, device)
 
     evaluation_returns = []
     training_returns = []

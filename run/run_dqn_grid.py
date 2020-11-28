@@ -120,7 +120,7 @@ def fill_memory_buffer(model):
 
 if __name__ == '__main__':
     nr_actions = 4  # gridworld actions -> 0: up, 1: down, 2: left, 3: right
-    agent = a.DQNRaw(4 if frame_stack else 1, nr_actions, device)
+    agent = a.DQNFS(4 if frame_stack else 1, nr_actions, device)
 
     evaluation_returns = []
     training_returns = []

@@ -91,6 +91,20 @@ def compute_sizes(config):
     return config
 
 
+def build_vector(feature_maps):
+    """
+    transform feature_maps from CNN to sequence of pixel vectors / input_vectors for LSTM input
+    (batch, channels / num_feature_maps, height, width) --> (batch, seq_len, features); e.g.
+    (32, 128, 7, 7) --> (32, 49, 128)
+    :param feature_maps: cnn output
+    :return: input vector for lstm
+    """
+    batch, _, height, width = feature_maps.shape
+    vectors = [torch.stack([feature_maps[i][:, y, x] for y in range(height) for x in range(width)], dim=0)
+               for i in range(batch)]  # slice pixel vectors -> dimension of single vector = number of feature maps, e.g. 128
+    return torch.stack(vectors, dim=0)  # stack vectors at dim=0
+
+
 def count_parameters(model):
     print(f'number of trainable parameters')
     total_params = 0
