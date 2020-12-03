@@ -52,11 +52,11 @@ class Transformation:
         self.left = config['left']
         self.crop_height = config['crop_height']
         self.crop_width = config['crop_width']
-        self.out_channels = config['out_channels']
-        self.mean = config['mean']
-        self.std = config['std']
+        # self.out_channels = config['out_channels']
+        # self.mean = config['mean']
+        # self.std = config['std']
         self.transformation = t.Compose([
-            Resize(height=110, width=84, interpolation=Image.BICUBIC),
+            Resize(height=110, width=84, interpolation=Image.BILINEAR),
             Crop(top=self.top, left=self.left, height=self.crop_height, width=self.crop_width),
             # t.ToTensor(),
             # t.Normalize(mean=self.mean, std=self.std),

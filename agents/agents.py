@@ -68,7 +68,7 @@ class DQN(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.DARQNReplayMemory(maxlen=300000)
+        self.memory = memory.DARQNReplayMemory(maxlen=400000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
@@ -91,7 +91,7 @@ class DQN(Agent):
         # self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
-        shapes.count_parameters(self.policy_net)
+        # shapes.count_parameters(self.policy_net)
 
     def append_sample(self, state, action, reward, next_state, done):
         """
@@ -206,7 +206,7 @@ class DQN(Agent):
 
         # decay learning rate
         if not isinstance(self.optimizer, optim.Adam):
-            if self.learning_rate > self.learning_rate_min:
+            if self.optimizer.param_groups[0]['lr'] > self.learning_rate_min:
                 self.optimizer.param_groups[0]['lr'] -= self.learning_rate_decay
 
         # increment counter for target_net update
@@ -244,7 +244,7 @@ class DQNFS(Agent):
         self.action_space = [_ for _ in range(self.nr_actions)]
         self.model = model
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.00025
+        self.learning_rate = 0.001
         self.learning_rate_decay = 3.0e-09
         self.learning_rate_min = 0.00025
         self.epsilon = 1
@@ -252,7 +252,7 @@ class DQNFS(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.DQNFSReplayMemory(maxlen=300000)
+        self.memory = memory.DQNReplayMemory(maxlen=400000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
@@ -278,7 +278,6 @@ class DQNFS(Agent):
         self.target_net.eval()
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
-        # self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
         shapes.count_parameters(self.policy_net)
@@ -391,7 +390,7 @@ class DQNFS(Agent):
 
         # decay learning rate
         if not isinstance(self.optimizer, optim.Adam):
-            if self.learning_rate > self.learning_rate_min:
+            if self.optimizer.param_groups[0]['lr'] > self.learning_rate_min:
                 self.optimizer.param_groups[0]['lr'] -= self.learning_rate_decay
 
         # increment counter for target_net update
