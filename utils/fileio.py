@@ -32,9 +32,9 @@ def mkdir(model, env, num_layers, hidden_size, alignment, dir_id=None):
     return path + '/'
 
 
-def mkdir_g(model, env, dir_id):
+def mkdir_g(model, env, dir_id, align):
     id_path = f'../output/ID_{dir_id}'
-    path = f'../output/ID_{dir_id}/{model}_{env}'
+    path = f'../output/ID_{dir_id}/{model}_{align}_{env}'
     if not os.path.exists(id_path):
         os.mkdir(id_path, 0o755)
     if not os.path.exists(path):
