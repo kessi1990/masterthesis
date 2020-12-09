@@ -252,6 +252,7 @@ if __name__ == '__main__':
 
             logging.info('=====================================================')
             logging.info('continue training ...')
+            training_return = 0
             state = env.reset()
             gc.collect()
 
