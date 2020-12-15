@@ -56,6 +56,9 @@ class Attention(nn.Module):
             self.fc_1 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=bias)
         elif self.alignment == 'concat':
             self.fc_1 = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size, bias=bias)
+        elif self.alignment == 'concat_fc':
+            self.fc_1 = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size, bias=bias)
+            self.fc_3 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=bias)
         else:  # self.alignment == 'dot'
             pass
         self.fc_2 = nn.Linear(in_features=hidden_size, out_features=1, bias=bias)
@@ -94,6 +97,22 @@ class Attention(nn.Module):
             # batch, seq_len, features
             _, seq_len, _ = input_vectors.shape
             alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, last_hidden_state.unsqueeze(dim=1).expand(-1, seq_len, -1)), dim=-1))))
+        elif self.alignment == 'concat_fc':
+            """
+            # concat_fc
+            # align(v_it, h_t−1) = W_s(tanh(W_a[v_it ; W_h(h_t−1) + b_h] + b_a)) + b_s
+            # --------------------------------------------------------------------------------------------------------
+            # 1. weights matrix with bias (fc_3) to last_hidden_state -> (b, 1, 128) 
+            # 2. concat input_vectors (b, 49, 128) and last_hidden_state (b, 1, 128) -> (b, 49, 256)
+            # 3. weights matrix with bias (fc_1) -> (b, 49, 128) 
+            # 4. apply hyperbolic tangent function -> aligned input_vectors (b, 49, 128)
+            # 5. alignment_score for each input_vector regarding last_hidden_state:
+            # -> aligned input_vectors (b, 49, 128) -> weights matrix with bias (fc_2) -> alignment_scores (b, 49, 1)
+            # --------------------------------------------------------------------------------------------------------
+            """
+            # batch, seq_len, features
+            _, seq_len, _ = input_vectors.shape
+            alignment_scores = self.fc_2(torch.tanh(self.fc_1(torch.cat((input_vectors, self.fc_3(last_hidden_state).unsqueeze(dim=1).expand(-1, seq_len, -1)), dim=-1))))
         else:
             """
             # dot
@@ -342,7 +361,7 @@ class NoLSTM(nn.Module):
     """
 
     """
-    def __init__(self, out_channels, alignment, hidden_size, nr_actions, device, in_channels=4):
+    def __init__(self, in_channels, out_channels, alignment, hidden_size, nr_actions, device):
         """
 
         :param in_channels:
@@ -373,7 +392,7 @@ class NoLSTM(nn.Module):
         context, weights = self.attention.forward(input_vectors, self.last_hidden.squeeze(dim=1))
         q_values = self.q_net.forward(context.squeeze(dim=1))
         self.last_hidden = context
-        return q_values  # , context, weights
+        return q_values
 
     def init_hidden(self, batch_size=1):
         """
@@ -425,3 +444,4 @@ class Identity(nn.Module):
         :return:
         """
         self.last_hidden = torch.zeros(batch_size, 1, self.hidden_size, device=self.device)
+

@@ -23,7 +23,7 @@ alignment = sys.argv[3]
 env_type = sys.argv[4]
 dir_id = int(sys.argv[5])
 
-config = c.load_config_file(f'../config/{env_type}.yaml')
+# config = c.load_config_file(f'../config/{env_type}.yaml')
 directory = fileio.mkdir_g(model_type, env_type, dir_id, alignment)
 checkpoint = fileio.load_checkpoint(directory)
 env = wrappers.make_env(env_type, fs=frame_stack, k=4)
@@ -161,7 +161,7 @@ def log_parameters(model):
 if __name__ == '__main__':
     if frame_stack:
         # dqn
-        agent = a.DQNFS(model_type, env.action_space.n, device, alignment=None, hidden_size=None, out_channels=None)
+        pass  # agent = a.DQNFS(model_type, env.action_space.n, device, alignment=None, hidden_size=None, out_channels=None)
     else:
         # darqn
         # cead

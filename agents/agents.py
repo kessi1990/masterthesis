@@ -68,7 +68,7 @@ class DQN(Agent):
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
-        self.memory = memory.DARQNReplayMemory(maxlen=400000)
+        self.memory = memory.DARQNReplayMemory(maxlen=500000)
         self.k_count = 0
         self.k_target = 10000
         self.reward_clipping = True
@@ -87,11 +87,11 @@ class DQN(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, alpha=0.95, eps=0.01)
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
         # self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
-        # shapes.count_parameters(self.policy_net)
+        shapes.count_parameters(self.policy_net)
 
     def append_sample(self, state, action, reward, next_state, done):
         """
@@ -233,22 +233,27 @@ class DQNFS(Agent):
     implementation of basic DQN approach -> Q-learning with known update rule, policy and target neural networks and
     experience replay. policy and target networks are either cead- or darqn-models.
     """
-    def __init__(self, model, nr_actions, device, alignment=None, hidden_size=None, out_channels=None):
+    def __init__(self, model, nr_actions, device, stacked_frames, alignment=None, hidden_size=None, out_channels=None):
         """
 
-        :param nr_actions: number of possible actions in environment, defines number of output neurons
-        :param device: evice which is in charge of computations (CPU / GPU)
+        :param model:
+        :param nr_actions:
+        :param device:
+        :param stacked_frames:
+        :param alignment:
+        :param hidden_size:
+        :param out_channels:
         """
         super().__init__()
         self.nr_actions = nr_actions
         self.action_space = [_ for _ in range(self.nr_actions)]
         self.model = model
         print(f'nr_actions: {self.nr_actions}, action_space: {self.action_space}')
-        self.learning_rate = 0.001
+        self.learning_rate = 0.00025
         self.learning_rate_decay = 3.0e-09
         self.learning_rate_min = 0.00025
         self.epsilon = 1
-        self.epsilon_decay = 9e-07
+        self.epsilon_decay = 0.000225  # 9e-07
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
@@ -265,11 +270,13 @@ class DQNFS(Agent):
             self.policy_net = models.DQNModel(nr_actions, device).to(device)
             self.target_net = models.DQNModel(nr_actions, device).to(device)
         elif self.model == 'no-lstm':
-            self.policy_net = models.NoLSTM(out_channels, alignment, hidden_size, nr_actions, device)
-            self.target_net = models.NoLSTM(out_channels, alignment, hidden_size, nr_actions, device)
-        else:  # model == 'no-conv_no-lstm / identity'
-            self.policy_net = models.Identity(alignment, hidden_size, nr_actions, device)
-            self.target_net = models.Identity(alignment, hidden_size, nr_actions, device)
+            self.policy_net = models.NoLSTM(stacked_frames, out_channels, alignment, hidden_size, nr_actions, device).to(device)
+            self.target_net = models.NoLSTM(stacked_frames, out_channels, alignment, hidden_size, nr_actions, device).to(device)
+        elif self.model == 'identity':  # model = 'no-conv_no-lstm / identity'
+            self.policy_net = models.Identity(alignment, hidden_size, nr_actions, device).to(device)
+            self.target_net = models.Identity(alignment, hidden_size, nr_actions, device).to(device)
+        else:
+            raise ValueError('model not supported')
 
         # copy initial weights
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -277,7 +284,7 @@ class DQNFS(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
         self.criterion = nn.MSELoss()
 
         shapes.count_parameters(self.policy_net)
@@ -308,7 +315,6 @@ class DQNFS(Agent):
             return np.random.choice(self.action_space)
         else:
             q_values = self.policy_net.forward(state)
-            print(f'q_values {q_values.shape}')
             action = torch.argmax(q_values[0]).item()
             return action
 
@@ -351,12 +357,12 @@ class DQNFS(Agent):
         states, actions, rewards, next_states, dones = list(zip(*mini_batch))
 
         # construct network inputs
-        state_batch = torch.cat(states)
-        next_state_batch = torch.cat(next_states)
+        state_batch = torch.cat(states, dim=0)
+        next_state_batch = torch.cat(next_states, dim=0)
 
         # construct tensors target computation
         action_batch = torch.tensor(actions, device=self.device, dtype=torch.int64)
-        reward_batch = torch.tensor(rewards, device=self.device)
+        reward_batch = torch.tensor(rewards, device=self.device, dtype=torch.int8)
         final_mask = torch.tensor(dones, device=self.device, dtype=torch.bool)
 
         # clip rewards if True
