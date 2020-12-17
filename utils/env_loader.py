@@ -1,8 +1,5 @@
 import pathlib
-import random
 from env import rooms, rooms_new
-import time
-import sys
 
 
 def read_map_file(path):
@@ -49,7 +46,7 @@ def load_grid(size='small'):
         path = '../env/maps/rooms_25_13.txt'
         x = 25
         y = 13
-        time_limit = 1000
+        time_limit = 2000
 
     file = pathlib.Path(path)
     assert file.is_file(), "{} couldn't be opened. Check filepath".format(file)
@@ -70,7 +67,6 @@ def load_grid(size='small'):
         elif cell == 'G':
             goal_id = i
         elif cell == '-':
-            # sub_goals.append(i)
             sub_goals.append((i // x, i % x))
         elif cell == '.':
             continue

@@ -387,12 +387,13 @@ class NoLSTM(nn.Module):
         :param state:
         :return:
         """
+        state = state.to(device=self.device)
         feature_maps = functional.relu(self.conv.forward(state))
         input_vectors = shapes.build_vector(feature_maps)
         context, weights = self.attention.forward(input_vectors, self.last_hidden.squeeze(dim=1))
         q_values = self.q_net.forward(context.squeeze(dim=1))
         self.last_hidden = context
-        return q_values
+        return q_values, weights
 
     def init_hidden(self, batch_size=1):
         """
@@ -420,7 +421,7 @@ class Identity(nn.Module):
         self.attention = Attention(alignment, hidden_size)
         self.q_net = nn.Linear(in_features=hidden_size, out_features=nr_actions)
 
-        self.hidden_size = 4  # hidden_size
+        self.hidden_size = hidden_size
         self.last_hidden = None
         self.init_hidden()
 
@@ -435,7 +436,7 @@ class Identity(nn.Module):
         context, weights = self.attention.forward(input_vectors, self.last_hidden.squeeze(dim=1))
         q_values = self.q_net.forward(context.squeeze(dim=1))
         self.last_hidden = context
-        return q_values
+        return q_values, weights
 
     def init_hidden(self, batch_size=1):
         """

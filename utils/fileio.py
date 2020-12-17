@@ -124,6 +124,24 @@ def load_results(directory):
         return {}
 
 
+def save_history(directory, data):
+    history = load_history(directory)
+    if history is not None:
+        history[list(history)[-1] + 1] = data
+    else:
+        history = {0: data}
+    torch.save(history, directory + 'history.pt')
+
+
+def load_history(directory):
+    path = directory + 'history.pt'
+    if os.path.exists(path):
+        history = torch.load(path, map_location=torch.device('cpu'))
+        return history
+    else:
+        return None
+
+
 def save_image(tensor, path):
     image = transforms.ToPILImage()(tensor)
     image.save(path)

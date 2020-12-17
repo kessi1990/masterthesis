@@ -259,7 +259,7 @@ class DQNFS(Agent):
         self.batch_size = 32
         self.memory = memory.DQNReplayMemory(maxlen=400000)
         self.k_count = 0
-        self.k_target = 10000
+        self.k_target = 1000
         self.reward_clipping = True
         self.gradient_clipping = False
         self.clip_value = 10
@@ -284,9 +284,11 @@ class DQNFS(Agent):
         # set target_net in evaluation mode
         self.target_net.eval()
 
+        # init optimizer and loss function
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
         self.criterion = nn.MSELoss()
 
+        # show number of trainable parameters
         shapes.count_parameters(self.policy_net)
 
     def append_sample(self, state, action, reward, next_state, done):
@@ -312,11 +314,11 @@ class DQNFS(Agent):
         :return: action
         """
         if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
-            return np.random.choice(self.action_space)
+            return np.random.choice(self.action_space), torch.zeros((1))
         else:
-            q_values = self.policy_net.forward(state)
+            q_values, weights = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
-            return action
+            return action, weights
 
     def minimize_epsilon(self):
         """
@@ -370,10 +372,12 @@ class DQNFS(Agent):
             reward_batch.clamp_(min=-1, max=1)
 
         # predict on state_batch and gather q_values for action_batch
-        prediction = self.policy_net.forward(state_batch).gather(1, action_batch.unsqueeze(dim=1))
+        prediction, _ = self.policy_net.forward(state_batch)  # .gather(1, action_batch.unsqueeze(dim=1))
+        prediction = prediction.gather(1, action_batch.unsqueeze(dim=1))
 
         # compute target according to q-learning update rule
-        target = self.target_net.forward(next_state_batch).max(dim=1)[0].detach()
+        target, _ = self.target_net.forward(next_state_batch)  # .max(dim=1)[0].detach()
+        target = target.max(dim=1)[0].detach()
         target[final_mask] = 0
         target = (target * self.discount_factor) + reward_batch
 
