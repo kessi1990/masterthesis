@@ -71,7 +71,7 @@ class Grid:
         self.curr_coord = np.copy(self.start_coord)
         self.step_counter = 0
         self.done = False
-        observation = self.transform(Image.fromarray(self.state.transpose(1, 2, 0))).unsqueeze(dim=0)
+        observation = self.transform(Image.fromarray(self.state.transpose(1, 2, 0))).unsqueeze(dim=0).to(device=self.device)
         if self.frame_stack > 1:
             self.buffer = torch.zeros((1, self.frame_stack, self.height, self.width), dtype=torch.float32, device=self.device)
             observation = self.buffer.clone().detach()
@@ -109,7 +109,6 @@ class Grid:
         if self.frame_stack > 1:
             self.buffer = torch.cat((self.buffer[:, 1:], observation), dim=1)
             observation = self.buffer.clone().detach()
-            print(f'observation {observation.shape}')
 
         # return state, reward, done flag, info
         return observation, reward, self.done, self.info

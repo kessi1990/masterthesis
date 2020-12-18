@@ -40,7 +40,7 @@ logging.basicConfig(filename=f'{directory}run.log', filemode='a',
 
 if device.type == 'cpu':
     logging.warning(f'torch device type: {device.type} - terminate run')
-    exit()
+    # exit()
 
 logging.info('run started!')
 logging.info(f'frame_stack: {frame_stack}')
@@ -52,9 +52,9 @@ logging.info(f'env_type: {env_type}')
 logging.info(f'random_start: {random_start}')
 
 # training & evaluation steps
-training_steps = 200000
-evaluation_start = 2000
-evaluation_steps = 20000
+training_steps = 400000
+evaluation_start = 4000
+evaluation_steps = 40000
 
 
 def evaluate_model(model):

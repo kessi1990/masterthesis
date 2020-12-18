@@ -253,13 +253,13 @@ class DQNFS(Agent):
         self.learning_rate_decay = 3.0e-09
         self.learning_rate_min = 0.00025
         self.epsilon = 1
-        self.epsilon_decay = 0.000225  # 9e-07
+        self.epsilon_decay = 0.0000225  # 9e-07
         self.epsilon_min = 0.1
         self.discount_factor = 0.99
         self.batch_size = 32
         self.memory = memory.DQNReplayMemory(maxlen=400000)
         self.k_count = 0
-        self.k_target = 1000
+        self.k_target = 10000
         self.reward_clipping = True
         self.gradient_clipping = False
         self.clip_value = 10
@@ -285,7 +285,7 @@ class DQNFS(Agent):
         self.target_net.eval()
 
         # init optimizer and loss function
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.0001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
         self.criterion = nn.MSELoss()
 
         # show number of trainable parameters
