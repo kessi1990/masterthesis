@@ -105,7 +105,7 @@ class Grid:
             # time_limit exceeded, terminal condition met
             self.done = True
 
-        observation = self.transform(Image.fromarray(self.state.transpose(1, 2, 0))).unsqueeze(dim=0)
+        observation = self.transform(Image.fromarray(self.state.transpose(1, 2, 0))).unsqueeze(dim=0).to(device=self.device)
         if self.frame_stack > 1:
             self.buffer = torch.cat((self.buffer[:, 1:], observation), dim=1)
             observation = self.buffer.clone().detach()
