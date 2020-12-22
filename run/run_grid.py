@@ -40,7 +40,7 @@ logging.basicConfig(filename=f'{directory}run.log', filemode='a',
 
 if device.type == 'cpu':
     logging.warning(f'torch device type: {device.type} - terminate run')
-    # exit()
+    exit()
 
 logging.info('run started!')
 logging.info(f'frame_stack: {frame_stack}')
@@ -197,6 +197,7 @@ if __name__ == '__main__':
     logging.info('training model ...')
 
     t = 0
+    best = -1000
 
     state = env.reset()
     for step in range(continue_steps + 1, training_steps + 1):
@@ -242,6 +243,13 @@ if __name__ == '__main__':
             avg_return = evaluate_model(agent)
             logging.info(f'saving checkpoint ...')
             fileio.save_checkpoint(agent, train_counter, step, directory)
+
+            # save best model
+            if avg_return[0] > best:
+                logging.info(f'old best: {best}')
+                best = avg_return[0]
+                logging.info(f'new best: {best}')
+                fileio.save_checkpoint(agent, train_counter, step, directory, best=True)
 
             evaluation_returns.append(avg_return)
             results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,

@@ -285,7 +285,8 @@ class DQNFS(Agent):
         self.target_net.eval()
 
         # init optimizer and loss function
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.0001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
+        # self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.0001)  # optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
         self.criterion = nn.MSELoss()
 
         # show number of trainable parameters

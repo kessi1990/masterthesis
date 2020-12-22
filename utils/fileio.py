@@ -71,7 +71,7 @@ def write_info(config, directory):
                 file.write(f'{k}: {v}\n')
 
 
-def save_checkpoint(agent, train_counter, steps, directory):
+def save_checkpoint(agent, train_counter, steps, directory, best=False):
     data = {
         'policy_net': agent.policy_net.state_dict(),
         'target_net': agent.target_net.state_dict(),
@@ -92,7 +92,7 @@ def save_checkpoint(agent, train_counter, steps, directory):
         'train_counter': train_counter,
         'continue': steps
     }
-    path = directory + 'checkpoint.pt'
+    path = directory + 'best_model.pt' if best else directory + 'checkpoint.pt'
     torch.save(data, path)
 
 
