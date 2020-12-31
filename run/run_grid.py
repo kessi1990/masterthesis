@@ -52,9 +52,9 @@ logging.info(f'env_type: {env_type}')
 logging.info(f'random_start: {random_start}')
 
 # training & evaluation steps
-training_steps = 400000
-evaluation_start = 4000
-evaluation_steps = 40000
+training_steps = 5000000
+evaluation_start = 50000
+evaluation_steps = 20000
 
 
 def evaluate_model(model):
