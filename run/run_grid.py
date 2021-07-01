@@ -40,7 +40,7 @@ logging.basicConfig(filename=f'{directory}run.log', filemode='a',
 
 if device.type == 'cpu':
     logging.warning(f'torch device type: {device.type} - terminate run')
-    exit()
+    # exit()
 
 logging.info('run started!')
 logging.info(f'frame_stack: {frame_stack}')

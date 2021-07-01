@@ -16,7 +16,8 @@ class NoopResetEnv(gym.Wrapper):
         :param env:
         :param noop_max:
         """
-        """Sample initial states by taking random number of no-ops on reset.
+        """
+        Sample initial states by taking random number of no-ops on reset.
         No-op is assumed to be action 0.
         """
         gym.Wrapper.__init__(self, env)
@@ -31,7 +32,9 @@ class NoopResetEnv(gym.Wrapper):
         :param kwargs:
         :return:
         """
-        """ Do no-op action for a number of steps in [1, noop_max]."""
+        """ 
+        Do no-op action for a number of steps in [1, noop_max].
+        """
         self.env.reset(**kwargs)
         if self.override_num_noops is not None:
             noops = self.override_num_noops
@@ -112,6 +115,7 @@ class MaxAndSkipEnv(gym.Wrapper):
         """
         total_reward = 0.0
         done = None
+        info = None
         for _ in range(self._skip):
             obs, reward, done, info = self.env.step(action)
             self._obs_buffer.append(obs)
@@ -161,10 +165,6 @@ class FrameStack(gym.ObservationWrapper):
         :return:
         """
         self.buffer = torch.cat((self.buffer[:, 1:], observation), dim=1)
-        """
-        self.buffer[:, :-1] = self.buffer[:, 1:]
-        self.buffer[:, -1] = observation
-        """
         return self.buffer
 
 
@@ -177,7 +177,8 @@ class EpisodicLifeEnv(gym.Wrapper):
 
         :param env:
         """
-        """Make end-of-life == end-of-episode, but only reset on true game over.
+        """
+        Make end-of-life == end-of-episode, but only reset on true game over.
         Done by DeepMind for the DQN and co. since it helps value estimation.
         """
         gym.Wrapper.__init__(self, env)
@@ -192,8 +193,10 @@ class EpisodicLifeEnv(gym.Wrapper):
         """
         obs, reward, done, info = self.env.step(action)
         self.was_real_done = done
-        # check current lives, make loss of life terminal,
-        # then update lives to handle bonus lives
+        """
+        check current lives, make loss of life terminal,
+        then update lives to handle bonus lives
+        """
         lives = self.env.unwrapped.ale.lives()
         if self.lives > lives > 0:
             # for Qbert sometimes we stay in lives == 0 condition for a few frames
@@ -209,7 +212,8 @@ class EpisodicLifeEnv(gym.Wrapper):
         :param kwargs:
         :return:
         """
-        """Reset only when lives are exhausted.
+        """
+        Reset only when lives are exhausted.
         This way all states are still reachable even though lives are episodic,
         and the learner need not know about any of this behind-the-scenes.
         """
@@ -241,7 +245,7 @@ class TransformFrame(gym.ObservationWrapper):
         :param obs:
         :return:
         """
-        return self.transformation.transform(obs)
+        return self.transformation.transform(obs), obs
 
 
 def make_env(env_name, fs=False, k=4):

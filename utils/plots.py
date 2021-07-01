@@ -7,6 +7,7 @@ import torch
 
 def plot_intermediate_results(directory, optimizer, **data):
     lr = optimizer.param_groups[0]['lr']
+    title = None
     if isinstance(optimizer, torch.optim.RMSprop):
         momentum = optimizer.param_groups[0]['momentum']
         title = f'RMSProp_lr={lr}_momentum={momentum}'
@@ -26,7 +27,7 @@ def plot_intermediate_results(directory, optimizer, **data):
     axarr[1, 1].set(xlabel='evaluation epoch', ylabel='return')
 
     fig.suptitle(title)
-    # plt.tight_layout()
+
     plt.savefig(directory + 'results.png')
     plt.close()
 

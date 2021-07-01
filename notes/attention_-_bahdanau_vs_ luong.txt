@@ -1,6 +1,5 @@
 Bahdanau Attention:
 
-
 1. Produce encoder hidden states
 2. Calc alignment scores between previous decoder hidden state and each of the encoder hidden states. (last encoder hidden state = first decoder hidden state)
 3. Softmax alignment scores - alignment scores for each encoder hidden state are combined in single vector and then softmaxed

@@ -258,7 +258,7 @@ class DARQNModel(nn.Module):
         context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])  # -> (b, 1, 128), (b, 49, 1)
         decoder_out, (self.dec_h_t, self.dec_c_t) = self.decoder.forward(context, self.dec_h_t, self.dec_c_t)  # -> (b, 1, 128), (n, b, 128), (n, b, 128);  n = num_layers)
         q_values = self.q_net.forward(decoder_out.squeeze(dim=1))  # (b, a);  a = nr_actions
-        return q_values  # , context, weights
+        return q_values, context, weights
 
     def init_hidden(self, batch_size=1):
         """
@@ -310,7 +310,7 @@ class CEADModel(nn.Module):
         context, weights = self.attention.forward(input_vector, self.dec_h_t[-1])  # -> (b, 1, 128), (b, 49, 1)
         self.attentional_hidden = torch.tanh(self.att_concat(torch.cat((context, self.dec_h_t.permute(1, 0, 2)), dim=-1)))
         q_values = self.q_net.forward(self.attentional_hidden.squeeze(dim=1))  # (b, a);  a = nr_actions
-        return q_values  # , context, weights
+        return q_values, context, weights
 
     def init_hidden(self, batch_size=1):
         """

@@ -4,7 +4,7 @@ from env import rooms, rooms_new
 
 def read_map_file(path):
     file = pathlib.Path(path)
-    assert file.is_file(), "{} couldn't be opened. Check filepath".format(file)
+    assert file.is_file(), f"{file} couldn't be opened. Check filepath"
     with open(path) as f:
         content = f.readlines()
     obstacles = []  # [i for i, cell in enumerate(content.split()) if cell == '#']
@@ -49,7 +49,7 @@ def load_grid(size='small'):
         time_limit = 2000
 
     file = pathlib.Path(path)
-    assert file.is_file(), "{} couldn't be opened. Check filepath".format(file)
+    assert file.is_file(), f"{file} couldn't be opened. Check filepath"
 
     with open(path) as f:
         content = f.read()

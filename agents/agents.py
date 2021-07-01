@@ -91,6 +91,7 @@ class DQN(Agent):
         # self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
+        # show number of trainable parameters
         shapes.count_parameters(self.policy_net)
 
     def append_sample(self, state, action, reward, next_state, done):
@@ -115,13 +116,13 @@ class DQN(Agent):
         :param mode: training or evaluation mode
         :return: action
         """
-        if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
-            return np.random.choice(self.action_space)
+        if np.random.rand() <= (self.epsilon if mode == 'training' else 0.00):
+            return np.random.choice(self.action_space), None, None
         else:
-            # q_values, context, weights = self.policy_net.forward(state)
+            q_values, context, weights = self.policy_net.forward(state)
             q_values = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
-            return action  # , context, weights
+            return action, context, weights
 
     def minimize_epsilon(self):
         """
@@ -291,6 +292,7 @@ class DQNFS(Agent):
 
         # show number of trainable parameters
         shapes.count_parameters(self.policy_net)
+        exit()
 
     def append_sample(self, state, action, reward, next_state, done):
         """
