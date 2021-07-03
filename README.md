@@ -61,40 +61,24 @@ python run.py -h
 to get a brief overview of all possible options:
 
 ```
-usage: Attention-driven learning of Temporal Abstractions for Reinforcement Learning
-       [-h] [--head HEAD] [-c CONFIG] [-env ENVIRONMENT] [-o OUTPUT]
-       [-m {train,eval}]
+usage: Attention-driven learning of Temporal Abstractions in Reinforcement Learning
+       [-h] [-m {darqn,cead}] [-a {concat,general,dot}] [-e ENVIRONMENT] [-o OUTPUT]
 
 Parse arguments for run script
 
 optional arguments:
   -h, --help            show this help message and exit
-  --head HEAD           specifies network architecture. --head 'cnn'puts
-                        convolutional layers in front, followed by encoder /
-                        decoder LSTM with attention mechanism. --head 'lstm'
-                        puts encoder / decoder LSTM with attention mechanism
-                        in front, followed by convolutional layers. if not
-                        provided, 'cnn' is used
-  -c CONFIG, --config CONFIG
-                        parse config file as '*.yaml'. if not provided,
-                        default config is used.
-  -env ENVIRONMENT, --environment ENVIRONMENT
-                        used for game selection. if not provided,
-                        'Breakout-v0' is used.
+  -m {darqn,cead}, --model {darqn,cead}
+                        model type. defines if darqn or cead model is used.
+  -a {concat,general,dot}, --alignment {concat,general,dot}
+                        alignment method. defines which alignment method is used for computing attention
+                        weights.
+  -e ENVIRONMENT, --environment ENVIRONMENT
+                        environment. defines which environment is used for training. note: environments must
+                        start with a capital letter, e.g. -e Pong
   -o OUTPUT, --output OUTPUT
-                        output directory. ensure you have permissions to write
-                        to this directory! if not provided, default-directory
-                        '/output' is used.
-  -m {train,eval}, --mode {train,eval}
-                        sets mode for run script. 'train' is used for training
-                        mode, 'eval' is used for evaluation mode. if not
-                        provided, 'train' is used.
+                        output ID. running the script for the first time generates an output directory in
+                        the root directory of this project. the -a argument defines the ID of the run, which
+                        ismandatory if the training is interrupted and later continued for some reason.
+
 ```
-
-## Contributing
-
- TODO
-
-## License
-
-None
