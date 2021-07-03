@@ -2,155 +2,171 @@ import sys
 sys.path.append('..')
 
 import torch
-import gym
-import datetime
 import gc
 import random
+import logging
 
-# pytorch lr_scheduler.state_dict() and .load_state_dict throw a warning when being invoked --> ignore
+# pytorch lr_scheduler.state_dict() and .load_state_dict throw warnings when being called --> ignore
 import warnings
 warnings.filterwarnings("ignore")
 
 from agents import agents as a
-from utils import config as c
 from utils import fileio
-from utils import transformation
 from utils import plots
+from utils import wrappers
+from utils import args
 
-import time
+config = args.parse()
+model_type = config['model']
+alignment = config['alignment']
+env_type = config['environment']
+dir_id = config['output']
+frame_stack = False
 
-model_type = sys.argv[1]
-env_type = sys.argv[2]
-num_layers = int(sys.argv[3])
-dir_id = int(sys.argv[4])
-alignment = sys.argv[5]
-hidden_size = int(sys.argv[6])
-
-config = c.load_config_file(f'../config/{env_type}.yaml')
-directory = fileio.mkdir(model_type, env_type, num_layers, alignment, hidden_size, dir_id=dir_id)
+directory = fileio.mkdir_g(model_type, env_type, dir_id, alignment)
 checkpoint = fileio.load_checkpoint(directory)
-env = gym.make(env_type)
+env = wrappers.make_env(env_type, fs=frame_stack, k=4)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-t = transformation.Transformation(config)
 
-print(f'dir_id: {dir_id}')
-print(f'path: {directory}')
-print(f'device: {device}')
+logging.basicConfig(filename=f'{directory}run.log', filemode='a',
+                    format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S',
+                    level=logging.INFO)
+logging.info('run started!')
+logging.info(f'frame_stack: {frame_stack}')
+logging.info(f'dir_id: {dir_id}')
+logging.info(f'path: {directory}')
+logging.info(f'device: {device}')
+logging.info(f'model: {model_type}')
+logging.info(f'env_type: {env_type}')
 
-training_steps = 5000000  # 1000000  # 5000000
-evaluation_start = 50000  # 10000    # 50000
-evaluation_steps = 25000  # 5000     # 25000
+# training & evaluation steps
+training_steps = 5000000
+evaluation_start = 50000
+evaluation_steps = 25000
 
 
 def evaluate_model(model):
+    logging.info('-----------------------------------------------------')
+    logging.info('evaluating model ...')
+
+    return_e = 0
+    returns_e = []
 
     # set policy_net to eval mode
     model.policy_net.eval()
 
-    # init hidden
-    model.policy_net.init_hidden()
-    model.target_net.init_hidden()
+    # reset environment
+    state_e = env.reset()
 
-    eval_returns = []
-    eval_return = 0
-    steps = 0
-    done = True
-    init = True
-    lives = None
-    state = None
-
-    while steps < evaluation_steps:
-
-        # reset env
-        if done:
-            if not init:
-                eval_returns.append(eval_return)
-            init = False
-            env.reset()
-
-            #death detection
-            # press fire (1) and continue
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
-            eval_return = 0
-
-            # init hidden
-            model.policy_net.init_hidden()
-            model.target_net.init_hidden()
+    for step_e in range(evaluation_steps):
 
         # predict, no need for gradients
         with torch.no_grad():
-            action = model.policy(state, mode='evaluation')
+            action_e = model.policy(state_e, mode='evaluation')
 
-        next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
-        state = next_state
-        eval_return += reward
-        steps += 1
+        # execute action
+        next_state_e, reward_e, done_e, info_e = env.step(action_e)
+        state_e = next_state_e
 
-        # death detection
-        # press fire (1) and continue
-        if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
-            eval_return += reward
-            model.policy_net.init_hidden()
-            model.target_net.init_hidden()
+        # accumulate reward
+        return_e += reward_e
 
-    return (sum(eval_returns) / len(eval_returns), min(eval_returns), max(eval_returns)) if len(eval_returns) > 0 else (0, 0, 0)
+        # reset env
+        if done_e:
+            returns_e.append(return_e)
+            return_e = 0
+            state_e = env.reset()
+            gc.collect()
+
+    logging.info('-----------------------------------------------------')
+
+    return (sum(returns_e) / len(returns_e), min(returns_e), max(returns_e)) if len(returns_e) > 0 else (0, 0, 0)
 
 
 def fill_memory_buffer(model):
+    logging.info('-----------------------------------------------------')
+    logging.info('filling memory buffer ...')
 
-    lives = None
-    done = True
-    state = None
-    next_state = None
+    # reset environment
+    state_f = env.reset()
     action_space = [_ for _ in range(env.action_space.n)]
+
+    # set policy_net to eval mode
+    model.policy_net.eval()
 
     while len(model.memory) < 20000:
 
-        # reset env
-        if done:
-            env.reset()
-
-            # death detection
-            # press fire (1) and continue
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
-
-            # init hidden
-            model.policy_net.init_hidden()
-            model.target_net.init_hidden()
-
         # random action selection
-        action = random.choice(action_space)
+        action_f = random.choice(action_space)
 
-        # execute random action
-        next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
+        # execute action
+        next_state_f, reward_f, done_f, info_f = env.step(action_f)
 
         # fill buffer
-        model.append_sample(state, action, reward, next_state, done)
-        state = next_state
+        model.append_sample(state_f, action_f, reward_f, next_state_f, done_f)
+        state_f = next_state_f
 
-        # death detection
-        # press fire (1) and continue
-        if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
+        # reset env
+        if done_f:
+            env.reset()
 
-            # init hidden
-            model.policy_net.init_hidden()
-            model.target_net.init_hidden()
+    logging.info(f'memory_size: {len(agent.memory)}')
+    logging.info('-----------------------------------------------------')
+
+
+def restore(model, check_p):
+    logging.info(f'found checkpoint in directory:\n{directory}')
+    logging.info(f'loading checkpoint ...')
+    model.policy_net.load_state_dict(check_p['policy_net'])
+    model.target_net.load_state_dict(check_p['target_net'])
+    model.policy_net.to(device)
+    model.target_net.to(device)
+    model.optimizer.load_state_dict(check_p['optimizer'])
+    model.learning_rate = check_p['learning_rate']
+    model.learning_rate_decay = check_p['learning_rate_decay']
+    model.learning_rate_min = check_p['learning_rate_min']
+    model.epsilon = check_p['epsilon']
+    model.epsilon_decay = check_p['epsilon_decay']
+    model.epsilon_min = check_p['epsilon_min']
+    model.discount_factor = check_p['discount_factor']
+    model.batch_size = check_p['batch_size']
+    model.k_count = check_p['k_count']
+    model.k_target = check_p['k_target']
+    model.reward_clipping = check_p['reward_clipping']
+    model.gradient_clipping = check_p['gradient_clipping']
+    return model
+
+
+def log_parameters(model):
+    logging.info(f'epsilon: {model.epsilon}')
+    logging.info(f'epsilon_decay: {model.epsilon_decay}')
+    logging.info(f'epsilon_min: {model.epsilon_min}')
+    logging.info(f'learning_rate_start: {model.learning_rate}')
+    logging.info(f'learning_rate_decay: {model.learning_rate_decay}')
+    logging.info(f'learning_rate_min: {model.learning_rate_min}')
+    logging.info(f'learning_rate_current: {model.optimizer.param_groups[0]["lr"]}')
+    logging.info(f'reward_clipping: {model.reward_clipping}')
+    logging.info(f'gradient_clipping: {model.gradient_clipping}')
+    logging.info(f'discount_factor: {model.discount_factor}')
+    logging.info(f'batch_size: {model.batch_size}')
+    logging.info(f'memory_maxlen: {model.memory.maxlen}')
+    logging.info(f'memory_size: {len(model.memory)}')
+    logging.info(f'k_count: {model.k_count}')
+    logging.info(f'k_target: {model.k_target}')
+    logging.info(f'optimizer: {model.optimizer}')
+    logging.info('=====================================================')
 
 
 if __name__ == '__main__':
-    agent = a.DQN(model_type, env.action_space.n, device, num_layers, hidden_size, alignment)
+    if frame_stack:
+        # normal dqn
+        pass  # agent = a.DQNFS(model_type, env.action_space.n, device, alignment=None, hidden_size=None, out_channels=None)
+    else:
+        # darqn
+        # cead
+        # no-lstm
+        # identity
+        agent = a.DQN(model_type, env.action_space.n, device, num_layers=1, hidden_size=128, alignment=alignment)
 
     evaluation_returns = []
     training_returns = []
@@ -166,183 +182,85 @@ if __name__ == '__main__':
     continue_steps = 0
     train_counter = 0
     training_return = 0
-    done = True
-    init = True
-    lives = 0
-    state = None
-    next_state = None
 
-    print('=====================================================')
-    print(f'model: {model_type}')
-    print(f'num_layers: {num_layers}')
-    print(f'hidden_size: {hidden_size}')
-    print(f'env_type: {env_type}')
-    print('-----------------------------------------------------')
+    logging.info('=====================================================')
 
     if checkpoint:
-        print(f'found checkpoint in directory:\n{directory}')
-        print(f'loading checkingpoint ...')
         train_counter = checkpoint['train_counter']
         continue_steps = checkpoint['continue']
-        agent.policy_net.load_state_dict(checkpoint['policy_net'])
-        agent.target_net.load_state_dict(checkpoint['target_net'])
-        agent.policy_net.to(device)
-        agent.target_net.to(device)
-        agent.optimizer.load_state_dict(checkpoint['optimizer'])
-        agent.learning_rate = checkpoint['learning_rate']
-        agent.learning_rate_decay = checkpoint['learning_rate_decay']
-        agent.learning_rate_min = checkpoint['learning_rate_min']
-        agent.epsilon = checkpoint['epsilon']
-        agent.epsilon_decay = checkpoint['epsilon_decay']
-        agent.epsilon_min = checkpoint['epsilon_min']
-        agent.discount_factor = checkpoint['discount_factor']
-        agent.batch_size = checkpoint['batch_size']
-        agent.k_count = checkpoint['k_count']
-        agent.k_target = checkpoint['k_target']
-        agent.reward_clipping = checkpoint['reward_clipping']
-        agent.gradient_clipping = checkpoint['gradient_clipping']
-        print(f'... done!')
-        print(f'continue training at: {train_counter} / {int(training_steps / 4)}, steps: {continue_steps} / {training_steps}')
-        print('-----------------------------------------------------')
-        fill_start = datetime.datetime.now()
-        print('filling memory buffer ...')
+        agent = restore(agent, checkpoint)
+        logging.info(f'continue training at: {train_counter} / {int(training_steps / 4)}, steps: {continue_steps} / {training_steps}')
         fill_memory_buffer(agent)
-        fill_end = datetime.datetime.now()
-        print(f'... done! time: {fill_end - fill_start}')
-        print(f'memory_size: {len(agent.memory)}')
-        print('-----------------------------------------------------')
 
-    print(f'epsilon: {agent.epsilon}')
-    print(f'epsilon_decay: {agent.epsilon_decay}')
-    print(f'epsilon_min: {agent.epsilon_min}')
-    print(f'learning_rate_start: {agent.learning_rate}')
-    print(f'learning_rate_decay: {agent.learning_rate_decay}')
-    print(f'learning_rate_min: {agent.learning_rate_min}')
-    print(f'learning_rate_current: {agent.optimizer.param_groups[0]["lr"]}')
-    print(f'reward_clipping: {agent.reward_clipping}')
-    print(f'gradient_clipping: {agent.gradient_clipping}')
-    print(f'discount_factor: {agent.discount_factor}')
-    print(f'batch_size: {agent.batch_size}')
-    print(f'memory_maxlen: {agent.memory.maxlen}')
-    print(f'memory_size: {len(agent.memory)}')
-    print(f'k_count: {agent.k_count}')
-    print(f'k_target: {agent.k_target}')
-    print(f'optimizer: {agent.optimizer}')
-    print('=====================================================')
+    log_parameters(agent)
+    logging.info('training model ...')
 
-    print('training model ...')
-    start = datetime.datetime.now()
-    train_start = datetime.datetime.now()
+    state = env.reset()
 
-    # instead of 0 start from 1 to max_steps to avoid .. avoid what?
     for step in range(continue_steps + 1, training_steps + 1):
         epsilons.append(agent.epsilon)
 
-        # reset env
-        if done:
-
-            # call garbage collector to free memory
-            gc.collect()
-
-            # init hidden
-            agent.policy_net.init_hidden()
-            agent.target_net.init_hidden()
-
-            if not init:
-                training_returns.append(training_return)
-            init = False
-
-            # reset env
-            env.reset()
-
-            # start game
-            # press fire (1) and continue
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
-            training_return = 0
-
-        # predict action, no need for gradients
+        # predict, no need for gradients
         with torch.no_grad():
             action = agent.policy(state, mode='training')
 
         # execute action
         next_state, reward, done, info = env.step(action)
-        next_state = t.transform(next_state)
-        training_return += reward
 
-        # append experience tuple to memory buffer
+        # store transition in memory buffer
         agent.append_sample(state, action, reward, next_state, done)
         state = next_state
+
+        # accumulate reward
+        training_return += reward
 
         # minimize epsilon
         agent.minimize_epsilon()
 
-        # death detection
-        # press fire (1) and continue
-        if lives != info['ale.lives'] and not done:
-            state, reward, done, info = env.step(1)
-            state = t.transform(state)
-            lives = info['ale.lives']
-            training_return += reward
+        if done:
+            training_returns.append(training_return)
+            training_return = 0
 
-            # init hidden
-            agent.policy_net.init_hidden()
-            agent.target_net.init_hidden()
+            # reset env
+            state = env.reset()
+            gc.collect()
 
         # train every 4th step
         if step % 4 == 0:
-
-            # train policy net with batch and obtain loss
             loss = agent.train()
-
-            # append loss and increment training_counter
             losses.append(loss)
             train_counter += 1
 
         # enter evaluation phase
         if step % evaluation_start == 0 or step == training_steps:
-            train_end = datetime.datetime.now()
-            print(f'... done! time: {train_end - train_start}')
-            print(f'training: {train_counter} / {int(training_steps / 4)}, steps: {step} / {training_steps}')
-            print('-----------------------------------------------------')
-            print('evaluating model ...')
-            start_time = datetime.datetime.now()
+            logging.info(f'training: {train_counter} / {int(training_steps / 4)}, steps: {step} / {training_steps}')
+
             avg_return = evaluate_model(agent)
-            end_time = datetime.datetime.now()
-            print(f'... done! time: {end_time - start_time}')
-            print('-----------------------------------------------------')
-            print(f'saving checkpoint ...')
+
+            logging.info(f'saving checkpoint ...')
             fileio.save_checkpoint(agent, train_counter, step, directory)
-            print(f'... done!')
-            print('-----------------------------------------------------')
+
             evaluation_returns.append(avg_return)
             results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
                        'epsilons': epsilons}
-            print(f'saving intermediate results ...')
+            logging.info(f'saving intermediate results ...')
             fileio.save_results(results, directory)
-            print(f'... done!')
-            print('-----------------------------------------------------')
-            print(f'plotting intermediate results ...')
-            plots.plot_intermediate_results(directory, agent.optimizer, **results)
-            print(f'... done!')
-            print('=====================================================')
-            print('continue training ...')
-            done = True
-            gc.collect()
-            train_start = datetime.datetime.now()
 
-    end = datetime.datetime.now()
-    print(f'overall time: {end - start}')
+            logging.info(f'plotting intermediate results ...')
+            plots.plot_intermediate_results(directory, agent.optimizer, **results)
+
+            logging.info('=====================================================')
+            logging.info('continue training ...')
+            training_return = 0
+            state = env.reset()
+            gc.collect()
+
     results = {'loss': losses, 'evaluation_returns': evaluation_returns, 'training_returns': training_returns,
                'epsilons': epsilons}
-    print('=====================================================================')
-    print(f'saving results and final model ...')
+    logging.info('=====================================================================')
+    logging.info(f'saving results and final model ...')
     fileio.save_results(results, directory)
     fileio.save_checkpoint(agent, train_counter, training_steps, directory)
-    print(f'... done!')
-    print('---------------------------------------------------------------------')
-    print(f'plotting final results ...')
-    plots.plot_intermediate_results(directory, agent.optimizer, **results)
-    print(f'... done!')
-    print('=====================================================================')
+    logging.info('---------------------------------------------------------------------')
+    logging.info(f'plotting final results ...')
+    plots.plot_intermediate_results(directory, **results)

@@ -1,55 +1,47 @@
 import argparse
-from utils import config as c
 
 
 def parse():
-    parser = argparse.ArgumentParser(prog='Attention-driven learning of Temporal Abstractions for '
+    parser = argparse.ArgumentParser(prog='Attention-driven learning of Temporal Abstractions in '
                                           'Reinforcement Learning', description='Parse arguments for run script')
-    parser.add_argument('--head',
-                        help='specifies network architecture. --head \'cnn\'puts convolutional layers in '
-                             'front, followed by encoder / decoder LSTM with attention mechanism. \n'
-                             '--head \'lstm\' puts encoder / decoder LSTM with attention mechanism in '
-                             'front, followed by convolutional layers. \n'
-                             'if not provided, \'cnn\' is used')
-    parser.add_argument('-c', '--config',
-                        help='parse config file as \'*.yaml\'. \n'
-                             'if not provided, default config is used.')
-    parser.add_argument('-env', '--environment',
-                        help='used for game selection. \n'
-                             'if not provided, \'Breakout-v0\' is used.')
+
+    parser.add_argument('-m', '--model',
+                        choices=['darqn', 'cead'],
+                        help='model type. defines if darqn or cead model is used.')
+
+    parser.add_argument('-a', '--alignment',
+                        choices=['concat', 'general', 'dot'],
+                        help='alignment method. defines which alignment method is used for computing attention weights.')
+
+    parser.add_argument('-e', '--environment',
+                        help='environment. defines which environment is used for training. \n'
+                             'note: environments must start with a capital letter, e.g. -e Pong')
+
     parser.add_argument('-o', '--output',
-                        help='output directory. ensure you have permissions to write to this directory! \n'
-                             'if not provided, default-directory \'/output\' is used.')
-    parser.add_argument('-m', '--mode',
-                        choices=['train', 'eval'],
-                        help='sets mode for run script. \'train\' is used for training mode, '
-                             '\'eval\' is used for evaluation mode. if not provided, \'train\' is used.')
+                        help='output ID. running the script for the first time generates an output directory in the '
+                             'root directory of this project. the -a argument defines the ID of the run, which is'
+                             'mandatory if the training is interrupted and later continued for some reason.')
 
     args = parser.parse_args()
 
-    if args.mode:
-        config = {'mode': args.train}
+    if args.model:
+        config = {'model': args.model}
     else:
-        config = {'mode': 'train'}
+        config = {'model': 'cead'}
 
-    if args.config:
-        config_provided = c.load_config_file(args.config)
-        config = {**config, **config_provided, 'default': False}
+    if args.alignment:
+        config = {**config, 'alignment': args.alignment}
     else:
-        config = {**config, 'default': True}
+        config = {**config, 'alignment': 'concat'}
 
     if args.environment:
         config = {**config, 'environment': args.environment}
     else:
-        config = {**config, 'environment': 'Breakout-v4'}
+        config = {**config, 'environment': 'Pong'}
 
     if args.output:
         config = {**config, 'output': args.output}
     else:
-        if 'output' not in config:
-            output = '../output/'
-            config = {**config, 'output': output}
-
-    config = {**config, 'head': args.head if args.head else 'cnn'}
+        config = {**config, 'output': 0}
 
     return config

@@ -13,6 +13,7 @@ from agents import memory
 from models import models
 from utils import shapes
 
+
 class Agent(ABC):
     """
     abstract agent class
@@ -117,12 +118,12 @@ class DQN(Agent):
         :return: action
         """
         if np.random.rand() <= (self.epsilon if mode == 'training' else 0.00):
-            return np.random.choice(self.action_space), None, None
+            return np.random.choice(self.action_space)  # , None, None
         else:
-            q_values, context, weights = self.policy_net.forward(state)
+            # q_values, context, weights = self.policy_net.forward(state)
             q_values = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
-            return action, context, weights
+            return action  # , context, weights
 
     def minimize_epsilon(self):
         """
@@ -175,11 +176,13 @@ class DQN(Agent):
             reward_batch.clamp_(min=-1, max=1)
 
         # predict on state_batch and gather q_values for action_batch
+        prediction = None
         for state_batch in state_seq_batch:
             prediction = self.policy_net.forward(state_batch)
         prediction = prediction.gather(1, action_batch.unsqueeze(dim=1))
 
         # compute target according to q-learning update rule
+        target = None
         for next_state_batch in next_state_seq_batch:
             target = self.target_net.forward(next_state_batch)
 
@@ -232,7 +235,7 @@ class DQN(Agent):
 class DQNFS(Agent):
     """
     implementation of basic DQN approach -> Q-learning with known update rule, policy and target neural networks and
-    experience replay. policy and target networks are either cead- or darqn-models.
+    experience replay. stacks n consecutive frames to avoid partial observability.
     """
     def __init__(self, model, nr_actions, device, stacked_frames, alignment=None, hidden_size=None, out_channels=None):
         """
@@ -317,11 +320,11 @@ class DQNFS(Agent):
         :return: action
         """
         if np.random.rand() <= (self.epsilon if mode == 'training' else 0.05):
-            return np.random.choice(self.action_space), torch.zeros((1))
+            return np.random.choice(self.action_space)  # , torch.zeros((1))
         else:
             q_values, weights = self.policy_net.forward(state)
             action = torch.argmax(q_values[0]).item()
-            return action, weights
+            return action  # , weights
 
     def minimize_epsilon(self):
         """

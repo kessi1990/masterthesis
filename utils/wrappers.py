@@ -245,7 +245,7 @@ class TransformFrame(gym.ObservationWrapper):
         :param obs:
         :return:
         """
-        return self.transformation.transform(obs), obs
+        return self.transformation.transform(obs)
 
 
 def make_env(env_name, fs=False, k=4):

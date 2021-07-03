@@ -6,8 +6,8 @@ import multiprocessing as mp
 
 
 class MCTS:
-    def __init__(self, action_space, c=math.sqrt(2), iteration_limit=100, horizon=40, branching_factor=4,
-                 discount_factor=0.99, computation_budget=100):
+    def __init__(self, action_space, c=math.sqrt(2), iteration_limit=300, horizon=80, branching_factor=4,
+                 discount_factor=0.99, computation_budget=1000):
         """
 
         :param action_space:

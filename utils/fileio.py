@@ -33,8 +33,11 @@ def mkdir(model, env, num_layers, hidden_size, alignment, dir_id=None):
 
 
 def mkdir_g(model, env, dir_id, align):
+    root = '../output/'
     id_path = f'../output/ID_{dir_id}'
     path = f'../output/ID_{dir_id}/{model}_{align}_{env}'
+    if not os.path.exists(root):
+        os.mkdir(root)
     if not os.path.exists(id_path):
         os.mkdir(id_path, 0o755)
     if not os.path.exists(path):
